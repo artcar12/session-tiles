@@ -16,6 +16,33 @@ The app runs as a menu-bar extra with no Dock icon. The menu-bar item toggles th
 app; its icon shows a count when any session is waiting. Drag the panel by its background. It
 remembers its size and position.
 
+## Skins
+
+Pick a skin from the menu-bar menu (**Skin ▸**). It switches live and is remembered.
+
+- **Classic**: flat rounded tiles over the system blur; follows light/dark mode.
+- **DJ Deck**: backlit rubber pads on a black deck. Waiting pads strobe, busy pads run an EQ meter,
+  idle pads sit dimly lit. Times read like a track clock (`04:07`).
+- **Starship Console**: chamfered, outlined stations with glowing LEDs, scanlines and monospaced
+  readouts. Waiting stations raise a red alert, busy ones run an LED chase, idle ones show STANDBY.
+
+DJ Deck and Starship are always dark, whatever the system appearance. All looping animations pause when
+macOS Reduce Motion is on.
+
+### Adding a skin
+
+1. Add `Sources/SessionTiles/Skins/<Name>Skin.swift` with a type conforming to `Skin` (see `Skin.swift`):
+   grid metrics, chrome colors and font, and `background()`, `header(_:)` and `tile(_:_:)` views.
+   `ClassicSkin.swift` is the smallest example.
+2. Add a case to `SkinID` with its display name.
+
+Skins only draw. Data, ordering, visibility rules and clicks stay shared in `TilesView`/`TileButton`.
+
+**Animations:** use the Core Animation helpers in `LayerEffects.swift` (`BlinkingFill`, `.blink()`,
+`LEDChase`, `LevelMeter`) for anything that loops. They run in the system render server and keep the panel
+at about 1-3% CPU. Looping animations driven from SwiftUI (`phaseAnimator`, `repeatForever`, a fast
+`TimelineView`) re-run layout for the whole grid each frame and cost 15-30% CPU for a few tiles.
+
 ## Requirements
 
 macOS 14+, Swift 5.9+ toolchain (Xcode or Command Line Tools). No Xcode project is needed.
@@ -54,5 +81,8 @@ to parse on two consecutive reads, an orange banner names the file(s) above the 
 - `SESSION_TILES_SNAPSHOT=/tmp/p.png build/SessionTiles.app/Contents/MacOS/SessionTiles` writes the
   panel to `/tmp/p.png` and the visible tiles to `/tmp/p.png.txt` (same TSV as `list-live.py --visible`)
   every 2s, so `diff <(./list-live.py --visible) /tmp/p.png.txt` checks the panel against the files.
-  It needs no Screen Recording permission.
+  The PNG is a real window-server capture of the app's own window, so it needs no Screen Recording
+  permission and includes animations mid-flight.
+- Switch skins without the menu: `defaults write com.arthurcarroll.SessionTiles skin starship`
+  (`classic`, `djDeck`, `starship`), then relaunch.
 - `SESSION_TILES_DIR=/some/dir` reads sessions from another folder (for testing error states).

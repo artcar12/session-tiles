@@ -3,103 +3,83 @@ import AppKit
 
 struct TilesView: View {
     @ObservedObject var store: SessionStore
-
-    private let columns = [GridItem(.adaptive(minimum: 160, maximum: 260), spacing: 6)]
+    @AppStorage(SkinID.defaultsKey) private var skinID: SkinID = .classic
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        let skin = skinID.skin
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let visible = VisibilityRules.ordered(store.sessions, now: context.date)
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: skin.grid.spacing) {
+                skin.header(PanelSummary(visible))
                 if let err = store.fatalError {
-                    Banner(text: err, symbol: "exclamationmark.octagon.fill", color: .red)
+                    Banner(text: err, symbol: "exclamationmark.octagon.fill", color: .red, skin: skin)
                     Spacer(minLength: 0)
                 } else {
                     if let warn = store.warning {
-                        Banner(text: warn, symbol: "exclamationmark.triangle.fill", color: .orange)
+                        Banner(text: warn, symbol: "exclamationmark.triangle.fill", color: .orange, skin: skin)
                     }
                     if visible.isEmpty {
                         Text("No active Claude sessions")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .font(skin.font(12, .regular))
+                            .foregroundStyle(skin.secondaryTextColor)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         ScrollView {
-                            LazyVGrid(columns: columns, spacing: 6) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: skin.grid.minTileWidth,
+                                                                   maximum: skin.grid.maxTileWidth),
+                                                         spacing: skin.grid.spacing)],
+                                      spacing: skin.grid.spacing) {
                                 ForEach(visible) { s in
-                                    TileView(session: s, now: context.date)
+                                    TileButton(skin: skin,
+                                               model: TileModel(session: s, elapsed: context.date.timeIntervalSince(s.statusSince)),
+                                               reduceMotion: reduceMotion)
                                 }
                             }
+                            .padding(6)   // room for glows/shadows so the scroll view doesn't clip them
+                            .padding(-6)
                         }
                     }
                 }
             }
-            .padding(8)
-            .padding(.top, 6) // room for the invisible title bar drag area
+            .padding(skin.grid.padding)
+            .padding(.top, 2)
         }
-        .frame(minWidth: 180, minHeight: 80)
+        // The header occupies the (invisible) title-bar strip, which doubles as the drag handle.
+        .ignoresSafeArea(edges: .top)
+        .background(skin.background().ignoresSafeArea())
+        .frame(minWidth: 200, minHeight: 100)
     }
 }
 
-struct TileView: View {
-    let session: Session
-    let now: Date
-    @Environment(\.colorScheme) private var scheme
+/// Shared click + hover handling; the skin only draws.
+private struct TileButton: View {
+    let skin: any Skin
+    let model: TileModel
+    let reduceMotion: Bool
     @State private var hovering = false
 
     var body: some View {
         Button {
-            if let url = session.deepLink { NSWorkspace.shared.open(url) }
+            if let url = model.session.deepLink { NSWorkspace.shared.open(url) }
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.name)
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                HStack(spacing: 4) {
-                    Text(session.project).lineLimit(1).truncationMode(.middle)
-                    Spacer(minLength: 4)
-                    Text(Self.duration(now.timeIntervalSince(session.statusSince)))
-                        .monospacedDigit()
-                }
-                .font(.system(size: 10.5))
-                .opacity(0.85)
-                if session.status == .waiting {
-                    Text(session.waitingFor.map { "Waiting: \($0)" } ?? "Waiting")
-                        .font(.system(size: 10.5, weight: .medium))
-                        .lineLimit(1)
-                } else if session.status == .unknown {
-                    Text("Status: \(session.rawStatus)")
-                        .font(.system(size: 10.5))
-                        .lineLimit(1)
-                }
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, minHeight: 50, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 7).fill(color.opacity(hovering ? 1 : 0.88)))
-            .contentShape(RoundedRectangle(cornerRadius: 7))
+            Color.clear
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SkinButtonStyle(skin: skin, model: model, hovering: hovering, reduceMotion: reduceMotion))
         .onHover { hovering = $0 }
-        .help("\(session.name)\n\(session.project) · \(session.rawStatus)\nClick to open in Claude")
+        .help("\(model.name)\n\(model.project) · \(model.rawStatus)\nClick to open in Claude")
     }
+}
 
-    private var color: Color {
-        let dark = scheme == .dark
-        switch session.status {
-        case .waiting: return Color(red: dark ? 0.78 : 0.86, green: 0.20, blue: 0.20)
-        case .idle:    return Color(red: dark ? 0.78 : 0.88, green: dark ? 0.50 : 0.56, blue: 0.05)
-        case .busy:    return Color(red: 0.16, green: dark ? 0.40 : 0.45, blue: dark ? 0.80 : 0.88)
-        case .unknown: return Color.gray
-        }
-    }
+private struct SkinButtonStyle: ButtonStyle {
+    let skin: any Skin
+    let model: TileModel
+    let hovering: Bool
+    let reduceMotion: Bool
 
-    static func duration(_ t: TimeInterval) -> String {
-        let s = max(0, Int(t))
-        if s < 60 { return "\(s)s" }
-        if s < 3600 { return "\(s / 60)m" }
-        return String(format: "%dh %02dm", s / 3600, (s % 3600) / 60)
+    func makeBody(configuration: Configuration) -> some View {
+        skin.tile(model, TileState(hovering: hovering, pressed: configuration.isPressed, reduceMotion: reduceMotion))
+            .contentShape(Rectangle())
     }
 }
 
@@ -107,14 +87,15 @@ private struct Banner: View {
     let text: String
     let symbol: String
     let color: Color
+    let skin: any Skin
 
     var body: some View {
         Label(text, systemImage: symbol)
-            .font(.system(size: 11))
+            .font(skin.font(11, .medium))
             .foregroundStyle(color)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(6)
-            .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(0.12)))
+            .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(0.14)))
             .textSelection(.enabled)
     }
 }

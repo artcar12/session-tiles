@@ -30,12 +30,16 @@ private struct MenuBarLabel: View {
 }
 
 private struct MenuContent: View {
-    let delegate: AppDelegate
+    @ObservedObject var delegate: AppDelegate
     @ObservedObject var store: SessionStore
+    @AppStorage(SkinID.defaultsKey) private var skinID: SkinID = .classic
 
     var body: some View {
         Button(delegate.panelVisible ? "Hide Panel" : "Show Panel") { delegate.togglePanel() }
             .keyboardShortcut("t")
+        Picker("Skin", selection: $skinID) {
+            ForEach(SkinID.allCases) { Text($0.displayName).tag($0) }
+        }
         Divider()
         Button("Quit Session Tiles") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
@@ -136,10 +140,28 @@ final class FloatingPanel: NSPanel {
         setFrameAutosaveName("SessionTilesPanel")
     }
 
+    /// Prefers a real window-server capture of this window (what's actually on screen, blur and layer
+    /// animations included); falls back to cacheDisplay, which misdraws nested layer-backed views.
     func writeSnapshot(to path: String) {
+        let url = URL(fileURLWithPath: path)
+        if let image = Self.captureWindow(CGWindowID(windowNumber)) {
+            let rep = NSBitmapImageRep(cgImage: image)
+            try? rep.representation(using: .png, properties: [:])?.write(to: url)
+            return
+        }
         guard let view = contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
-        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+    }
+
+    /// CGWindowListCreateImage is marked unavailable in the current SDK, so look it up at runtime.
+    /// Debug-only; returns nil if the symbol is gone or capture isn't permitted.
+    private static func captureWindow(_ id: CGWindowID) -> CGImage? {
+        typealias Fn = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
+        guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
+        let fn = unsafeBitCast(sym, to: Fn.self)
+        let optionIncludingWindow: UInt32 = 1 << 3, boundsIgnoreFraming: UInt32 = 1 << 0
+        return fn(.null, optionIncludingWindow, id, boundsIgnoreFraming)?.takeRetainedValue()
     }
 
     override var canBecomeKey: Bool { true }

@@ -15,8 +15,11 @@ final class SessionStore: ObservableObject {
     let directory: URL
     private var pollTimer: Timer?
     private var dirSource: DispatchSourceFileSystemObject?
-    /// Previous successful parse per file, reused for one refresh if a read catches a half-written file.
-    private var lastGood: [String: SessionFile] = [:]
+    /// Last successful parse per file name, keyed by the file's mtime+size so unchanged files aren't
+    /// re-read. Also reused if a read catches a half-written file.
+    private var parsed: [String: (stamp: FileStamp, file: SessionFile)] = [:]
+    /// Result of the procStart-vs-real-start-time check per pid; only redone when procStart changes.
+    private var startCheck: [Int: (procStart: String, ok: Bool)] = [:]
     private var failedLastTime: Set<String> = []
 
     init(directory: URL = FileManager.default.homeDirectoryForCurrentUser
@@ -38,32 +41,39 @@ final class SessionStore: ObservableObject {
         do {
             names = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         } catch {
-            sessions = []
-            warning = nil
-            fatalError = "Can't read \(displayPath): \(error.localizedDescription)"
+            // Assign only on change: every @Published set redraws the panel and the menu-bar icon.
+            if !sessions.isEmpty { sessions = [] }
+            if warning != nil { warning = nil }
+            let message = "Can't read \(displayPath): \(error.localizedDescription)"
+            if fatalError != message { fatalError = message }
+            parsed = [:]
             stopWatching()
             return
         }
-        fatalError = nil
+        if fatalError != nil { fatalError = nil }
 
         var found: [Session] = []
         var failed: Set<String> = []
-        var good: [String: SessionFile] = [:]
+        var seen: Set<String> = []
         let decoder = JSONDecoder()
 
         for name in names where name.hasSuffix(".json") {
+            seen.insert(name)
             let path = directory.appendingPathComponent(name).path
+            let stamp = FileStamp(path: path)
             var file: SessionFile?
-            if let data = FileManager.default.contents(atPath: path),
-               let f = try? decoder.decode(SessionFile.self, from: data), f.pid != nil {
+            if let stamp, let cached = parsed[name], cached.stamp == stamp {
+                file = cached.file
+            } else if let data = FileManager.default.contents(atPath: path),
+                      let f = try? decoder.decode(SessionFile.self, from: data), f.pid != nil {
                 file = f
-                good[name] = f
+                if let stamp { parsed[name] = (stamp, f) }
             } else {
                 failed.insert(name)
-                file = lastGood[name]  // tolerate one bad read (mid-rewrite)
+                file = parsed[name]?.file  // tolerate one bad read (mid-rewrite)
             }
             guard let f = file, let pid = f.pid, f.entrypoint == "claude-desktop",
-                  ProcessCheck.isAlive(pid: pid, procStart: f.procStart) else { continue }
+                  isLive(pid: pid, procStart: f.procStart) else { continue }
             if let s = Session(f) {
                 found.append(s)
             } else {
@@ -74,14 +84,27 @@ final class SessionStore: ObservableObject {
         // Only complain about files that failed twice in a row and whose pid (from the filename) is live.
         let persistent = failed.intersection(failedLastTime).filter { name in
             guard let pid = Int((name as NSString).deletingPathExtension) else { return true }
-            return ProcessCheck.isAlive(pid: pid, procStart: nil)
+            return ProcessCheck.isAlive(pid: pid)
         }
-        warning = persistent.isEmpty ? nil
+        let newWarning = persistent.isEmpty ? nil
             : "Couldn't parse \(persistent.count) session file(s): \(persistent.sorted().joined(separator: ", ")). The format may have changed."
+        if newWarning != warning { warning = newWarning }
 
         failedLastTime = failed
-        lastGood = good
+        parsed = parsed.filter { seen.contains($0.key) }
         if found != sessions { sessions = found }
+    }
+
+    private func isLive(pid: Int, procStart: String?) -> Bool {
+        guard ProcessCheck.isAlive(pid: pid) else {
+            startCheck[pid] = nil
+            return false
+        }
+        guard let procStart else { return true }
+        if let cached = startCheck[pid], cached.procStart == procStart { return cached.ok }
+        let ok = ProcessCheck.startTimeMatches(pid: pid, procStart: procStart)
+        startCheck[pid] = (procStart, ok)
+        return ok
     }
 
     private var displayPath: String {
@@ -112,14 +135,34 @@ final class SessionStore: ObservableObject {
     }
 }
 
+/// Modification time + size, to tell whether a file changed since it was last parsed.
+struct FileStamp: Equatable {
+    let mtime: timespec
+    let size: off_t
+
+    init?(path: String) {
+        var st = stat()
+        guard stat(path, &st) == 0 else { return nil }
+        mtime = st.st_mtimespec
+        size = st.st_size
+    }
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.mtime.tv_sec == b.mtime.tv_sec && a.mtime.tv_nsec == b.mtime.tv_nsec && a.size == b.size
+    }
+}
+
 enum ProcessCheck {
-    /// Alive per `kill(pid, 0)`. When `procStart` is given and parseable, also require it to match the
-    /// process's real start time, so a stale file whose pid was reused by another process is dropped.
-    static func isAlive(pid: Int, procStart: String?) -> Bool {
+    /// Alive per `kill(pid, 0)` (EPERM still means it exists).
+    static func isAlive(pid: Int) -> Bool {
         guard pid > 0 else { return false }
-        if kill(pid_t(pid), 0) != 0 && errno != EPERM { return false }
-        guard let procStart, let claimed = parseProcStart(procStart),
-              let actual = startTime(pid: pid) else { return true }
+        return kill(pid_t(pid), 0) == 0 || errno == EPERM
+    }
+
+    /// Whether `procStart` matches the process's real start time, so a stale file whose pid was reused
+    /// by another process is dropped. Unparseable or unavailable values count as a match.
+    static func startTimeMatches(pid: Int, procStart: String) -> Bool {
+        guard let claimed = parseProcStart(procStart), let actual = startTime(pid: pid) else { return true }
         return abs(claimed.timeIntervalSince(actual)) < 2
     }
 
