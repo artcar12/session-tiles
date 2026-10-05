@@ -9,8 +9,25 @@ session, colored by status. Clicking a tile opens that session in the Claude app
 - **Gray**: a status value this app doesn't recognise (shown as-is)
 
 Each tile shows the session name, the project (repo name; `.claude/worktrees/<x>` collapses to the repo),
-and how long it has been in its current state. Order: waiting (oldest first), then idle, then busy.
-Idle sessions older than 1 hour are hidden (see `VisibilityRules.swift`, the only place filtering lives).
+and how long it has been in its current state. Order: pinned tiles first, then waiting (oldest first), idle, busy. All filtering lives in
+`VisibilityRules.swift`.
+
+## Controls and pins
+
+A strip at the bottom of the panel (hide it with **Show Controls** in the menu-bar menu) holds:
+
+- **SHOW ALL** switch: shows every live session, ignoring the other two controls. While off, its readout
+  says how many sessions the filters are hiding.
+- **STATUS** knob: ANY / WAIT / IDLE / BUSY. Click to turn, Option-click to turn back, scroll, or drag
+  up/down.
+- **STANDBY** fader: how long idle sessions stay visible, from 5m to 24h, or ∞ to keep them all.
+  Default 1h. Click, drag or scroll. Greyed out while it has no effect (SHOW ALL on, or the knob on WAIT
+  or BUSY).
+
+Pin a tile with the pin in its top-right corner (shows on hover) or from its right-click menu. Pinned
+tiles ignore every filter and sort first. If a pinned session's process ends, its tile stays as a gray
+**offline** tile counting time since it was last seen; clicking it still opens the session in Claude.
+Unpin it to remove it. Pins and control settings are remembered.
 
 The app runs as a menu-bar extra with no Dock icon. The menu-bar item toggles the panel and quits the
 app; its icon shows a count when any session is waiting. Drag the panel by its background. It
@@ -77,10 +94,12 @@ to parse on two consecutive reads, an orange banner names the file(s) above the 
 ## Debugging
 
 - `./list-live.py` lists live desktop sessions straight from the files, independently of the app.
-  `./list-live.py --visible` prints them in tile order with the same 1-hour rule, as TSV.
+  `./list-live.py --visible` prints them in tile order with the default filter (idle > 1h hidden), as
+  TSV; it doesn't know about pins or the panel's controls.
 - `SESSION_TILES_SNAPSHOT=/tmp/p.png build/SessionTiles.app/Contents/MacOS/SessionTiles` writes the
   panel to `/tmp/p.png` and the visible tiles to `/tmp/p.png.txt` (same TSV as `list-live.py --visible`)
-  every 2s, so `diff <(./list-live.py --visible) /tmp/p.png.txt` checks the panel against the files.
+  every 2s, so `diff <(./list-live.py --visible) /tmp/p.png.txt` checks the panel against the files
+  (with default controls and no pins).
   The PNG is a real window-server capture of the app's own window, so it needs no Screen Recording
   permission and includes animations mid-flight.
 - Switch skins without the menu: `defaults write com.arthurcarroll.SessionTiles skin starship`

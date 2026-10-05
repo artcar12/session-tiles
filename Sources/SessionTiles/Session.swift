@@ -17,7 +17,8 @@ struct SessionFile: Decodable {
 }
 
 enum SessionStatus: Int, Comparable {
-    case waiting = 0, idle, busy, unknown
+    /// `offline` never comes from a file: it marks a pinned session whose process has gone.
+    case waiting = 0, idle, busy, unknown, offline
 
     init(raw: String?) {
         switch raw {
@@ -58,6 +59,18 @@ struct Session: Identifiable, Equatable {
         waitingFor = f.waitingFor
         let ms = f.statusUpdatedAt ?? f.updatedAt ?? Date().timeIntervalSince1970 * 1000
         statusSince = Date(timeIntervalSince1970: ms / 1000)
+    }
+
+    /// Placeholder tile for a pinned session that is no longer running.
+    init(offline id: String, pin: PinnedSession) {
+        self.id = id
+        pid = 0
+        name = pin.name
+        project = pin.project
+        status = .offline
+        rawStatus = "offline"
+        waitingFor = nil
+        statusSince = pin.lastSeen
     }
 
     /// Last path component of cwd, with `.claude/worktrees/<name>` collapsed to the repo name.

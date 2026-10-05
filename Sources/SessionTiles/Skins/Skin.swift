@@ -8,6 +8,8 @@ protocol Skin {
     var textColor: Color { get }
     var secondaryTextColor: Color { get }
     func font(_ size: CGFloat, _ weight: Font.Weight) -> Font
+    /// Colors for the shared control strip (switch, knob, fader).
+    var controls: ControlStyle { get }
 
     /// Fills the whole panel, title-bar area included. Return `Color.clear` to keep the system blur.
     func background() -> AnyView
@@ -81,8 +83,9 @@ struct TileState {
 }
 
 struct PanelSummary {
-    var waiting = 0, idle = 0, busy = 0, other = 0
-    var total: Int { waiting + idle + busy + other }
+    var waiting = 0, idle = 0, busy = 0, other = 0, offline = 0
+    var online: Int { waiting + idle + busy + other }
+    var total: Int { online + offline }
 
     init(_ sessions: [Session]) {
         for s in sessions {
@@ -91,6 +94,7 @@ struct PanelSummary {
             case .idle: idle += 1
             case .busy: busy += 1
             case .unknown: other += 1
+            case .offline: offline += 1
             }
         }
     }
