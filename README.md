@@ -23,6 +23,7 @@ A strip at the bottom of the panel (hide it with **Show Controls** in the menu-b
 - **STANDBY** fader: how long idle sessions stay visible, from 5m to 24h, or ∞ to keep them all.
   Default 1h. Click, drag or scroll. Greyed out while it has no effect (SHOW ALL on, or the knob on WAIT
   or BUSY).
+- **SKIN** button: pops up the list of skins.
 
 Pin a tile with the pin in its top-right corner (shows on hover) or from its right-click menu. Pinned
 tiles ignore every filter and sort first. If a pinned session's process ends, its tile stays as a gray
@@ -35,7 +36,8 @@ remembers its size and position.
 
 ## Skins
 
-Pick a skin from the menu-bar menu (**Skin ▸**). It switches live and is remembered.
+Pick a skin with the **SKIN** button at the right of the control strip, by right-clicking an empty part
+of the panel, or from the menu-bar menu (**Skin ▸**). It switches live and is remembered.
 
 - **Classic**: flat rounded tiles over the system blur; follows light/dark mode.
 - **DJ Deck**: backlit rubber pads on a black deck. Waiting pads strobe, busy pads run an EQ meter,
@@ -43,7 +45,16 @@ Pick a skin from the menu-bar menu (**Skin ▸**). It switches live and is remem
 - **Starship Console**: chamfered, outlined stations with glowing LEDs, scanlines and monospaced
   readouts. Waiting stations raise a red alert, busy ones run an LED chase, idle ones show STANDBY.
 
-DJ Deck and Starship are always dark, whatever the system appearance. All looping animations pause when
+- **Cyberpunk**: neon noir. Rainy black-violet night, clipped-corner tiles outlined in glowing neon tubes,
+  kanji status tags. Waiting tiles buzz like a failing sign with a pink/cyan split title, busy ones run a
+  data chase.
+- **Medieval Hall**: heraldic banners on a stone wall, serif type, gold trim. Waiting banners are lit by a
+  flickering torch (a summons), busy ones are at work, idle ones hang dim at rest.
+- **Reactor Control Room**: 1970s control panel in green enamel. Each session is an instrument module with
+  an engraved label plate, an indicator lamp and an analog dial: flashing red SCRAM lamp and a pegged
+  needle when waiting, green RUN lamp and a hunting needle when busy, amber STBY when idle.
+
+Only Classic follows the system appearance. Reactor is always light; the others are always dark. All looping animations pause when
 macOS Reduce Motion is on.
 
 ### Adding a skin
@@ -56,7 +67,8 @@ macOS Reduce Motion is on.
 Skins only draw. Data, ordering, visibility rules and clicks stay shared in `TilesView`/`TileButton`.
 
 **Animations:** use the Core Animation helpers in `LayerEffects.swift` (`BlinkingFill`, `.blink()`,
-`LEDChase`, `LevelMeter`) for anything that loops. They run in the system render server and keep the panel
+`LEDChase`, `LevelMeter`, `SwingingNeedle`, and `Flicker` patterns via `.flicker()` or
+`BlinkingFill(flicker:)`) for anything that loops. They run in the system render server and keep the panel
 at about 1-3% CPU. Looping animations driven from SwiftUI (`phaseAnimator`, `repeatForever`, a fast
 `TimelineView`) re-run layout for the whole grid each frame and cost 15-30% CPU for a few tiles.
 
@@ -103,7 +115,7 @@ to parse on two consecutive reads, an orange banner names the file(s) above the 
   The PNG is a real window-server capture of the app's own window, so it needs no Screen Recording
   permission and includes animations mid-flight.
 - Switch skins without the menu: `defaults write com.arthurcarroll.SessionTiles skin starship`
-  (`classic`, `djDeck`, `starship`), then relaunch.
+  (`classic`, `djDeck`, `starship`, `cyberpunk`, `medieval`, `reactor`), then relaunch.
 - `SESSION_TILES_DIR=/some/dir` reads sessions from another folder (for testing error states).
 
 ## Cross-platform checks

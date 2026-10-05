@@ -19,7 +19,7 @@ protocol Skin {
 }
 
 enum SkinID: String, CaseIterable, Identifiable {
-    case classic, djDeck, starship
+    case classic, djDeck, starship, cyberpunk, medieval, reactor
 
     static let defaultsKey = "skin"
 
@@ -30,6 +30,21 @@ enum SkinID: String, CaseIterable, Identifiable {
         case .classic: return "Classic"
         case .djDeck: return "DJ Deck"
         case .starship: return "Starship Console"
+        case .cyberpunk: return "Cyberpunk"
+        case .medieval: return "Medieval Hall"
+        case .reactor: return "Reactor Control Room"
+        }
+    }
+
+    /// Fits under the SKIN control.
+    var shortName: String {
+        switch self {
+        case .classic: return "CLASSIC"
+        case .djDeck: return "DJ DECK"
+        case .starship: return "STARSHIP"
+        case .cyberpunk: return "CYBER"
+        case .medieval: return "MEDIEVAL"
+        case .reactor: return "REACTOR"
         }
     }
 
@@ -38,6 +53,9 @@ enum SkinID: String, CaseIterable, Identifiable {
         case .classic: return ClassicSkin()
         case .djDeck: return DJDeckSkin()
         case .starship: return StarshipSkin()
+        case .cyberpunk: return CyberpunkSkin()
+        case .medieval: return MedievalSkin()
+        case .reactor: return ReactorSkin()
         }
     }
 }

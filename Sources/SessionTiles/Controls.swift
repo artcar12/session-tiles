@@ -19,7 +19,7 @@ struct ControlStyle {
     func font(_ size: CGFloat, _ weight: Font.Weight) -> Font { .system(size: size, weight: weight, design: design) }
 }
 
-/// Bottom strip: SHOW ALL switch, STATUS knob, STANDBY fader.
+/// Bottom strip: SHOW ALL switch, STATUS knob, STANDBY fader, SKIN selector.
 struct ControlDeck: View {
     static let visibleKey = "showControls"
 
@@ -27,6 +27,7 @@ struct ControlDeck: View {
     @Binding var showAll: Bool
     @Binding var status: StatusFilter
     @Binding var standbyStop: Int
+    @Binding var skin: SkinID
     /// Live sessions the filters currently hide.
     let hidden: Int
 
@@ -77,6 +78,17 @@ struct ControlDeck: View {
                     if TileFilter.standbyStops.indices.contains(i) { standbyStop = i }
                 }
                 .help("How long idle (standby) sessions stay on the panel; ∞ keeps them all")
+
+                Labeled(style: style, caption: "SKIN", value: skin.shortName) {
+                    SkinButton(style: style, skin: $skin)
+                }
+                .fixedSize()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Skin")
+                .accessibilityValue(skin.displayName)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { skin = SkinID.allCases[((SkinID.allCases.firstIndex(of: skin) ?? 0) + 1) % SkinID.allCases.count] }
+                .help("Change the panel's skin")
             }
         }
     }
@@ -243,6 +255,25 @@ private struct Fader: View {
     }
 }
 
+/// Square cap with a palette icon; pops up a menu of skins.
+private struct SkinButton: View {
+    let style: ControlStyle
+    @Binding var skin: SkinID
+
+    var body: some View {
+        Cap(style: style, radius: min(style.radius, 5))
+            .overlay(Image(systemName: "paintpalette.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(style.accent))
+            .frame(width: 26, height: 22)
+            .overlay(PointerSurface(menu: {
+                SkinID.allCases.map { id in
+                    MenuChoice(title: id.displayName, checked: id == skin) { skin = id }
+                }
+            }))
+    }
+}
+
 /// Knob / switch / fader cap: the skin's cap color with a top sheen and an edge.
 private struct Cap: View {
     let style: ControlStyle
@@ -270,6 +301,8 @@ private struct PointerSurface: NSViewRepresentable {
     var onUp: (_ location: CGPoint, _ dragged: Bool) -> Void = { _, _ in }
     /// +1 for scrolling up (finger up on a trackpad, whatever the natural-scrolling setting), -1 for down.
     var onScroll: (Int) -> Void = { _ in }
+    /// When set, a press pops up these choices as a menu under the view instead of tracking the mouse.
+    var menu: (() -> [MenuChoice])?
 
     func makeNSView(context: Context) -> PointerSurfaceView { PointerSurfaceView() }
     func updateNSView(_ view: PointerSurfaceView, context: Context) { view.handlers = self }
@@ -288,6 +321,12 @@ private final class PointerSurfaceView: NSView {
     private func location(_ e: NSEvent) -> CGPoint { convert(e.locationInWindow, from: nil) }
 
     override func mouseDown(with e: NSEvent) {
+        if let choices = handlers?.menu?() {
+            let menu = NSMenu()
+            for c in choices { menu.addItem(ClosureMenuItem(c)) }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.maxY + 4), in: self)
+            return
+        }
         let p = location(e)
         start = p
         dragged = false
@@ -317,4 +356,25 @@ private final class PointerSurfaceView: NSView {
         while scrolled >= 1 { scrolled -= 1; handlers?.onScroll(1) }
         while scrolled <= -1 { scrolled += 1; handlers?.onScroll(-1) }
     }
+}
+
+struct MenuChoice {
+    let title: String
+    let checked: Bool
+    let action: () -> Void
+}
+
+private final class ClosureMenuItem: NSMenuItem {
+    private let run: () -> Void
+
+    init(_ c: MenuChoice) {
+        run = c.action
+        super.init(title: c.title, action: #selector(fire), keyEquivalent: "")
+        target = self
+        state = c.checked ? .on : .off
+    }
+
+    required init(coder: NSCoder) { fatalError("not used") }
+
+    @objc private func fire() { run() }
 }
