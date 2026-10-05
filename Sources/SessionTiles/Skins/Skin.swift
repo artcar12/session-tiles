@@ -75,8 +75,8 @@ struct TileModel {
     let session: Session
     let elapsed: TimeInterval
     var pinned = false
-    /// Account badge ("P", "W"); nil when only one Claude instance has sessions.
-    var account: String? = nil
+    /// Where the session comes from: instance tag then account tag (["P", "AC"]); empty with one of each.
+    var tags: [SourceTag] = []
 
     /// Pinned idle tiles get their own color in every skin, so they stand apart from ordinary idle ones.
     var pinnedIdle: Bool { pinned && session.status == .idle }
@@ -97,6 +97,23 @@ struct TileModel {
     var clockDuration: String {
         let m = max(0, Int(elapsed)) / 60
         return String(format: "%02d:%02d", m / 60, m % 60)
+    }
+}
+
+/// A tile's source tags in a row; the skin styles each one. Draws nothing when there are none.
+struct TagRow<Tag: View>: View {
+    let tags: [SourceTag]
+    var spacing: CGFloat = 3
+    @ViewBuilder let tag: (SourceTag) -> Tag
+
+    var body: some View {
+        if !tags.isEmpty {
+            HStack(spacing: spacing) {
+                ForEach(tags.indices, id: \.self) { tag(tags[$0]) }
+            }
+            .fixedSize()
+            .accessibilityElement(children: .combine)
+        }
     }
 }
 
@@ -123,6 +140,11 @@ struct PanelSummary {
             }
         }
     }
+}
+
+extension Array where Element == Color {
+    /// A source tag's color from a skin's tag palette.
+    func tag(_ t: SourceTag) -> Color { isEmpty ? .gray : self[t.slot % count] }
 }
 
 extension Color {

@@ -13,6 +13,8 @@ struct AppSessionEntry: Equatable {
     /// The Claude instance's data folder the record lives in ("Claude", "Claude-personal"), which tells
     /// apart sessions of accounts run side by side in separate instances.
     let instance: String
+    /// The account that created the session: the account id folder the record sits under.
+    let account: String
 }
 
 /// Raw shape of the Claude app's per-session metadata file. Undocumented internal format: every field
@@ -46,8 +48,9 @@ enum ArchiveError: LocalizedError {
 @MainActor
 final class AppSessionIndex: ObservableObject {
     @Published private(set) var entries: [AppSessionEntry] = []
-    /// Account badge per session id, set only when records come from more than one instance.
-    @Published private(set) var badges: [String: String] = [:]
+    /// Tags per session id: the instance's when records come from more than one instance, then the
+    /// account's when from more than one account. Sessions with neither are absent.
+    @Published private(set) var tags: [String: [SourceTag]] = [:]
 
     /// nil: find every `Claude*` data folder on each poll.
     let directory: URL?
@@ -113,7 +116,8 @@ final class AppSessionIndex: ObservableObject {
                                 lastActivity: Date(timeIntervalSince1970: (f.lastActivityAt ?? 0) / 1000),
                                 archived: f.isArchived ?? false,
                                 path: path,
-                                instance: instance)
+                                instance: instance,
+                                account: a)
                         }
                         parsed[path] = (stamp, entry)
                         if let entry { found.append(entry) }
@@ -124,11 +128,25 @@ final class AppSessionIndex: ObservableObject {
         parsed = parsed.filter { seen.contains($0.key) }
         found.sort { $0.id < $1.id }
         if found != entries { entries = found }
-        let instances = Set(found.map(\.instance))
-        let newBadges = instances.count > 1
-            ? Dictionary(found.map { ($0.id, AccountBadge.label(instance: $0.instance)) }, uniquingKeysWith: { a, _ in a })
-            : [:]
-        if newBadges != badges { badges = newBadges }
+        let byInstance = Set(found.map(\.instance)).count > 1
+        let byAccount = Set(found.map(\.account)).count > 1
+        var newTags: [String: [SourceTag]] = [:]
+        if byInstance || byAccount {
+            // Every distinct instance, then account, gets its own color slot, the same on every tile.
+            let instances = byInstance ? Array(Set(found.map(\.instance))).sorted() : []
+            let accounts = byAccount ? Array(Set(found.map(\.account))).sorted() : []
+            for e in found where newTags[e.id] == nil {
+                var t: [SourceTag] = []
+                if let i = instances.firstIndex(of: e.instance) {
+                    t.append(SourceTag(text: SessionTags.instance(e.instance), slot: i))
+                }
+                if let a = accounts.firstIndex(of: e.account) {
+                    t.append(SourceTag(text: SessionTags.account(e.account), slot: instances.count + a))
+                }
+                newTags[e.id] = t
+            }
+        }
+        if newTags != tags { tags = newTags }
     }
 
     /// Sets the archived flag in the session's record. The running Claude app keeps its session list in
@@ -163,19 +181,36 @@ final class AppSessionIndex: ObservableObject {
     }
 }
 
-/// The letter on a tile that says which Claude instance (and so which account) a session belongs to.
-enum AccountBadge {
-    /// UserDefaults dictionary of instance folder name → badge text, e.g. `{Claude = W; "Claude-personal" = P;}`.
-    static let defaultsKey = "accountBadges"
+/// The short tags on a tile saying where a session comes from: which Claude instance runs it and which
+/// account created it. Each shows only when there is more than one of its kind.
+struct SourceTag: Equatable {
+    let text: String
+    /// Color slot, distinct per instance and per account; skins map it onto their own palette.
+    let slot: Int
+}
 
-    /// Override from `accountBadges`, else the initial of the folder's suffix ("Claude-personal" → "P");
-    /// the plain "Claude" folder gets "D" (default instance).
-    static func label(instance: String) -> String {
-        if let custom = (UserDefaults.standard.dictionary(forKey: defaultsKey)?[instance] as? String)?
-            .trimmingCharacters(in: .whitespaces), !custom.isEmpty {
-            return String(custom.prefix(2)).uppercased()
-        }
-        let suffix = instance.dropFirst("Claude".count).drop { $0 == "-" || $0 == "_" || $0 == " " }
+enum SessionTags {
+    /// UserDefaults dictionary of instance folder name → tag, e.g. `{Claude = W; "Claude-personal" = P;}`.
+    static let instanceKey = "instanceBadges"
+    /// UserDefaults dictionary of account id (the first id folder under `claude-code-sessions`) → tag.
+    static let accountKey = "accountBadges"
+
+    /// Override, else the initial of the folder's suffix ("Claude-personal" → "P"); the plain "Claude"
+    /// folder gets "D" (default instance).
+    static func instance(_ name: String) -> String {
+        if let custom = override(instanceKey, name) { return custom }
+        let suffix = name.dropFirst("Claude".count).drop { $0 == "-" || $0 == "_" || $0 == " " }
         return suffix.first.map { String($0).uppercased() } ?? "D"
+    }
+
+    /// Override, else the first two characters of the account id.
+    static func account(_ id: String) -> String {
+        override(accountKey, id) ?? String(id.prefix(2)).uppercased()
+    }
+
+    private static func override(_ key: String, _ name: String) -> String? {
+        guard let s = (UserDefaults.standard.dictionary(forKey: key)?[name] as? String)?
+            .trimmingCharacters(in: .whitespaces), !s.isEmpty else { return nil }
+        return String(s.prefix(3)).uppercased()
     }
 }

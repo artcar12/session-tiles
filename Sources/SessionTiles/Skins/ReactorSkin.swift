@@ -11,6 +11,9 @@ struct ReactorSkin: Skin {
     static let ink = Color(hex: 0x1E2219)
     static let plate = Color(hex: 0x16181A)
     static let engraving = Color(hex: 0xE8E4D4)
+    /// Source tag plates, painted like equipment labels.
+    static let tagColors: [Color] = [Color(hex: 0x1F5E6B), Color(hex: 0x7A2350), Color(hex: 0x2F5F2A), Color(hex: 0x3A3F8C),
+                                     Color(hex: 0x16181A)]
 
     let controls = ControlStyle(accent: Color(hex: 0xD8352A), track: Color(hex: 0x6F7563), cap: Color(hex: 0x22241F),
                                 capEdge: .black.opacity(0.6), label: Color(hex: 0x2E3328), value: ink,
@@ -238,6 +241,13 @@ private struct ReactorModule: View {
                         .padding(.horizontal, 3).padding(.vertical, 1)
                         .background(Rectangle().fill(Color(hex: 0x141412)))
                     Spacer(minLength: 0)
+                    TagRow(tags: model.tags, spacing: 2) { t in
+                        Text(t.text)
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundStyle(ReactorSkin.engraving)
+                            .padding(.horizontal, 3).padding(.vertical, 1)
+                            .background(Rectangle().fill(ReactorSkin.tagColors.tag(t)))
+                    }
                     Dial(status: model.status, animated: !state.reduceMotion)
                 }
                 Text(model.status == .waiting ? (model.waitingFor ?? "operator required").uppercased()

@@ -46,6 +46,13 @@ private struct ClassicTile: View {
             HStack(spacing: 4) {
                 Text(model.project).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 4)
+                TagRow(tags: model.tags) { t in
+                    Text(t.text)
+                        .font(.system(size: 9, weight: .semibold))
+                        .padding(.horizontal, 4).padding(.vertical, 0.5)
+                        .background(Capsule().fill(Self.tagColors.tag(t)))
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
+                }
                 Text(model.shortDuration).monospacedDigit()
             }
             .font(.system(size: 10.5))
@@ -67,6 +74,9 @@ private struct ClassicTile: View {
         .background(RoundedRectangle(cornerRadius: 7).fill(color.opacity(state.hovering ? 1 : 0.88)))
         .scaleEffect(state.pressed ? 0.97 : 1)
     }
+
+    static let tagColors: [Color] = [Color(hex: 0x0F8F80), Color(hex: 0xB5367F), Color(hex: 0x3C7F1E), Color(hex: 0x4A4FB8),
+                                     Color(hex: 0x7A5230)]
 
     private var color: Color {
         let dark = scheme == .dark

@@ -117,6 +117,9 @@ private struct CyberTile: View {
     private var color: Color { model.pinnedIdle ? CyberpunkSkin.pinnedIdle : CyberpunkSkin.color(model.status) }
     private var alarm: Bool { model.status == .waiting && !state.reduceMotion }
 
+    static let tagColors: [Color] = [CyberpunkSkin.cyan, CyberpunkSkin.pink, Color(hex: 0xB6FF3B), Color(hex: 0xFFE53B),
+                                     Color(hex: 0xFFFFFF)]
+
     private var tag: String {
         switch model.status {
         case .waiting: return "警告"
@@ -146,6 +149,14 @@ private struct CyberTile: View {
                     .foregroundStyle(CyberpunkSkin.cyan.opacity(0.7))
                 Text("//").foregroundStyle(color.opacity(0.6))
                 Spacer(minLength: 4)
+                TagRow(tags: model.tags, spacing: 2) { t in
+                    Text(t.text)
+                        .font(.system(size: 8.5, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 3).padding(.vertical, 1)
+                        .background(Rectangle().fill(Self.tagColors.tag(t)))
+                        .opacity(model.status.isAsleep ? 0.6 : 1)
+                }
                 Text(model.clockDuration).foregroundStyle(color)
             }
             .font(.system(size: 9.5, weight: .medium, design: .monospaced))

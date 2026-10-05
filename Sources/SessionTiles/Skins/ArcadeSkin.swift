@@ -157,6 +157,9 @@ private struct ArcadeTile: View {
     let model: TileModel
     let state: TileState
 
+    static let tagColors: [Color] = [Color(hex: 0x3BE8FF), Color(hex: 0xFF5FB0), Color(hex: 0x6BFF5F), Color(hex: 0xFFE14D),
+                                     Color(hex: 0xFFFFFF)]
+
     private var color: Color { model.pinnedIdle ? ArcadeSkin.pinnedIdle : ArcadeSkin.color(model.status) }
     private var blinking: Bool { model.status == .waiting && !state.reduceMotion }
 
@@ -191,7 +194,19 @@ private struct ArcadeTile: View {
                 Text("TIME \(model.clockDuration)").foregroundStyle(ArcadeSkin.yellow)
             }
             .font(.system(size: 9, weight: .bold, design: .monospaced))
-            statusLine
+            HStack(spacing: 4) {
+                statusLine
+                Spacer(minLength: 4)
+                TagRow(tags: model.tags) { t in
+                    let c = Self.tagColors.tag(t)
+                    Text(t.text)
+                        .font(.system(size: 8.5, weight: .black, design: .monospaced))
+                        .foregroundStyle(c)
+                        .padding(.horizontal, 3).padding(.vertical, 1)
+                        .background(Rectangle().fill(Color(hex: 0x1C1C40)))
+                        .overlay(Rectangle().strokeBorder(c, lineWidth: 1))
+                }
+            }
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 8)
@@ -229,7 +244,9 @@ private struct ArcadeTile: View {
         case .busy:
             HStack(spacing: 6) {
                 Text("NOW PLAYING").font(font).foregroundStyle(color)
-                LEDChase(color: color, animated: !state.reduceMotion, count: 6,
+                    .lineLimit(1).layoutPriority(1)
+                // Shorter with source tags on the line, so the label doesn't wrap.
+                LEDChase(color: color, animated: !state.reduceMotion, count: model.tags.isEmpty ? 6 : 3,
                          segment: CGSize(width: 4, height: 4), spacing: 2, step: 0.12)
             }
         case .idle:

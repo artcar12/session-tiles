@@ -10,6 +10,9 @@ struct MedievalSkin: Skin {
     static let gold = Color(hex: 0xD4AF37)
     static let parchment = Color(hex: 0xF3E6C4)
     static let torch = Color(hex: 0xFF8A1E)
+    /// Source tags: gold, silver, verdigris, rose, copper.
+    static let tagColors: [Color] = [Color(hex: 0xE8C45A), Color(hex: 0xD8DDE4), Color(hex: 0x7FD1B4), Color(hex: 0xF2A0B4),
+                                     Color(hex: 0xE0915F)]
 
     let controls = ControlStyle(accent: gold, track: Color(hex: 0x3A332D), cap: Color(hex: 0x5A4632),
                                 capEdge: gold.opacity(0.6), label: Color(hex: 0xA8957A), value: parchment,
@@ -158,10 +161,21 @@ private struct HeraldicBanner: View {
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 2)
                 statusLine
-                Text(model.shortDuration)
-                    .font(.system(size: 9.5, weight: .semibold, design: .serif))
-                    .monospacedDigit()
-                    .foregroundStyle(MedievalSkin.gold.opacity(0.9))
+                HStack(spacing: 5) {
+                    Text(model.shortDuration)
+                        .font(.system(size: 9.5, weight: .semibold, design: .serif))
+                        .monospacedDigit()
+                        .foregroundStyle(MedievalSkin.gold.opacity(0.9))
+                    TagRow(tags: model.tags) { t in
+                        let c = MedievalSkin.tagColors.tag(t)
+                        Text(t.text)
+                            .font(.system(size: 8, weight: .bold, design: .serif))
+                            .foregroundStyle(c)
+                            .padding(.horizontal, 3).padding(.vertical, 0.5)
+                            .background(RoundedRectangle(cornerRadius: 2).fill(.black.opacity(0.3)))
+                            .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(c.opacity(0.8), lineWidth: 0.8))
+                    }
+                }
             }
             .shadow(color: .black.opacity(0.5), radius: 1, y: 1)
             .padding(.horizontal, 9)

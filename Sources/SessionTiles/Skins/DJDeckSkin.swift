@@ -87,6 +87,10 @@ private struct DJCounter: View {
 }
 
 private struct DJPad: View {
+    /// Source tag lettering, lit like the pads' LEDs.
+    static let tagColors: [Color] = [Color(hex: 0x4FF0E0), Color(hex: 0xFF6FCF), Color(hex: 0xA8FF60), Color(hex: 0xFFE45C),
+                                     Color(hex: 0xFFFFFF)]
+
     let model: TileModel
     let state: TileState
 
@@ -146,6 +150,15 @@ private struct DJPad: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .opacity(0.85)
+                    TagRow(tags: model.tags, spacing: 2) { t in
+                        let c = Self.tagColors.tag(t)
+                        Text(t.text)
+                            .font(.system(size: 8, weight: .heavy, design: .rounded))
+                            .foregroundStyle(c)
+                            .padding(.horizontal, 3.5).padding(.vertical, 1)
+                            .background(Capsule().fill(.black.opacity(0.55)))
+                            .shadow(color: c.opacity(0.6), radius: 2)
+                    }
                     Spacer(minLength: 2)
                     if model.status == .busy {
                         LevelMeter(animated: !state.reduceMotion)
