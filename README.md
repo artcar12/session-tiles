@@ -92,5 +92,8 @@ to parse on two consecutive reads, an orange banner names the file(s) above the 
 `verify/` holds read-only scripts for checking the session files on other platforms before porting:
 `check-sessions.py` (Linux and macOS) and `check-sessions.ps1` (Windows; untested so far). Each lists
 every session file with liveness and start-time checks, reports field names with `--fields` / `-Fields`,
-and prints status changes with `--watch TEXT` / `-Watch TEXT`. The step-by-step procedure and results
-table live in the "Session Tiles: Windows and Ubuntu verification" doc.
+and prints status changes with `--watch TEXT` / `-Watch TEXT`.
+
+## License
+
+MIT. See `LICENSE`.
