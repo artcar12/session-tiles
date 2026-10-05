@@ -23,19 +23,25 @@ struct TileFilter: Equatable {
     var status: StatusFilter = .any
     /// Index into `standbyStops`.
     var standbyStop = TileFilter.defaultStandbyStop
+    /// Off: pinned tiles are hidden, offline ones included (SHOW ALL still shows live pinned sessions).
+    var showPinned = true
+    /// Adds dormant tiles: sessions in the Claude app's sidebar with no running process. They follow the
+    /// standby window and show for the ANY and IDLE knob positions; with SHOW ALL, every one shows.
+    var showDormant = false
 
-    /// How long an idle (standby) session stays visible; nil keeps it forever.
-    static let standbyStops: [TimeInterval?] = [5, 15, 30, 60, 120, 240, 480, 1440].map { $0 * 60 } + [nil]
+    /// How long an idle (standby) or dormant session stays visible; nil keeps it forever.
+    static let standbyStops: [TimeInterval?] = [5, 15, 30, 60, 120, 240, 480, 1440, 4320, 10080].map { $0 * 60 } + [nil]
     static let defaultStandbyStop = 3  // 1h
 
     var standbyCutoff: TimeInterval? {
         Self.standbyStops[min(max(standbyStop, 0), Self.standbyStops.count - 1)]
     }
 
-    /// "5m", "1h", "24h", "∞"
+    /// "5m", "1h", "24h", "3d", "∞"
     static func standbyLabel(_ stop: Int) -> String {
         guard let t = standbyStops[min(max(stop, 0), standbyStops.count - 1)] else { return "∞" }
         let m = Int(t / 60)
+        if m > 1440 { return "\(m / 1440)d" }
         return m < 60 ? "\(m)m" : "\(m / 60)h"
     }
 
@@ -43,6 +49,8 @@ struct TileFilter: Equatable {
         static let showAll = "showAll"
         static let status = "statusFilter"
         static let standbyStop = "standbyStop"
+        static let showPinned = "showPinned"
+        static let showDormant = "showDormant"
     }
 
     /// Current settings, for code outside SwiftUI (the debug snapshot).
@@ -52,6 +60,8 @@ struct TileFilter: Equatable {
         f.showAll = d.bool(forKey: Keys.showAll)
         f.status = d.string(forKey: Keys.status).flatMap(StatusFilter.init(rawValue:)) ?? .any
         if d.object(forKey: Keys.standbyStop) != nil { f.standbyStop = d.integer(forKey: Keys.standbyStop) }
+        if d.object(forKey: Keys.showPinned) != nil { f.showPinned = d.bool(forKey: Keys.showPinned) }
+        f.showDormant = d.bool(forKey: Keys.showDormant)
         return f
     }
 }
@@ -62,6 +72,8 @@ enum VisibilityRules {
         var tiles: [Session]
         /// Live sessions the filter hid.
         var hidden: Int
+        /// Dormant sessions the current filter would show with `showDormant` on.
+        var dormant: Int
     }
 
     static func isVisible(_ s: Session, filter: TileFilter, now: Date) -> Bool {
@@ -77,21 +89,41 @@ enum VisibilityRules {
         return true
     }
 
+    /// Whether a dormant session (no process) gets a tile, given `showDormant` is on.
+    static func isDormantVisible(_ e: AppSessionEntry, filter: TileFilter, now: Date) -> Bool {
+        if e.archived { return false }
+        if filter.showAll { return true }
+        guard filter.status == .any || filter.status == .idle else { return false }
+        if let cutoff = filter.standbyCutoff, now.timeIntervalSince(e.lastActivity) > cutoff { return false }
+        return true
+    }
+
     /// Pinned tiles first, and always shown: a pinned session whose process has gone becomes an offline
     /// tile. Within each group: waiting (oldest first), then idle, then busy, then anything unrecognised,
-    /// then offline.
-    static func ordered(_ sessions: [Session], pinned: [String: PinnedSession], filter: TileFilter,
-                        now: Date) -> Result {
+    /// then dormant (most recent first), then offline. With `showPinned` off, pinned sessions are hidden
+    /// instead (unless `showAll`). `dormant` is the Claude app's session list; entries that are running or
+    /// pinned are skipped.
+    static func ordered(_ sessions: [Session], pinned allPins: [String: PinnedSession], dormant: [AppSessionEntry] = [],
+                        filter: TileFilter, now: Date) -> Result {
+        let pinned = filter.showPinned ? allPins : [:]
         let liveIDs = Set(sessions.map(\.id))
         let offline = pinned.filter { !liveIDs.contains($0.key) }.map { Session(offline: $0.key, pin: $0.value) }
-        let shown = sessions.filter { pinned[$0.id] != nil || isVisible($0, filter: filter, now: now) }
-        let tiles = (shown + offline).sorted {
+        let shown = sessions.filter {
+            if !filter.showPinned && allPins[$0.id] != nil { return filter.showAll }
+            return pinned[$0.id] != nil || isVisible($0, filter: filter, now: now)
+        }
+        let eligible = dormant
+            .filter { !liveIDs.contains($0.id) && allPins[$0.id] == nil && isDormantVisible($0, filter: filter, now: now) }
+        let asleep = filter.showDormant ? eligible.map(Session.init(dormant:)) : []
+        let tiles = (shown + offline + asleep).sorted {
             let p0 = pinned[$0.id] != nil, p1 = pinned[$1.id] != nil
             if p0 != p1 { return p0 }
             if $0.status != $1.status { return $0.status < $1.status }
-            if $0.statusSince != $1.statusSince { return $0.statusSince < $1.statusSince }
+            if $0.statusSince != $1.statusSince {
+                return $0.status == .dormant ? $0.statusSince > $1.statusSince : $0.statusSince < $1.statusSince
+            }
             return $0.id < $1.id
         }
-        return Result(tiles: tiles, hidden: sessions.count - shown.count)
+        return Result(tiles: tiles, hidden: sessions.count - shown.count, dormant: eligible.count)
     }
 }

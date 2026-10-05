@@ -56,8 +56,8 @@ private struct ClassicTile: View {
                     .lineLimit(1)
             } else if model.status == .unknown {
                 Text("Status: \(model.rawStatus)").font(.system(size: 10.5)).lineLimit(1)
-            } else if model.status == .offline {
-                Text("Offline").font(.system(size: 10.5, weight: .medium)).lineLimit(1)
+            } else if model.status.isAsleep {
+                Text(model.status == .dormant ? "Not running" : "Offline").font(.system(size: 10.5, weight: .medium)).lineLimit(1)
             }
         }
         .foregroundStyle(.white)
@@ -70,11 +70,13 @@ private struct ClassicTile: View {
 
     private var color: Color {
         let dark = scheme == .dark
+        if model.pinnedIdle { return Color(red: dark ? 0.50 : 0.56, green: 0.30, blue: dark ? 0.78 : 0.86) }
         switch model.status {
         case .waiting: return Color(red: dark ? 0.78 : 0.86, green: 0.20, blue: 0.20)
         case .idle:    return Color(red: dark ? 0.78 : 0.88, green: dark ? 0.50 : 0.56, blue: 0.05)
         case .busy:    return Color(red: 0.16, green: dark ? 0.40 : 0.45, blue: dark ? 0.80 : 0.88)
         case .unknown: return .gray
+        case .dormant: return Color(red: 0.36, green: 0.42, blue: 0.52).opacity(dark ? 0.8 : 1)
         case .offline: return Color(white: dark ? 0.32 : 0.55)
         }
     }

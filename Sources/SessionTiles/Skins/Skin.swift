@@ -19,7 +19,7 @@ protocol Skin {
 }
 
 enum SkinID: String, CaseIterable, Identifiable {
-    case classic, djDeck, starship, cyberpunk, medieval, reactor
+    case classic, djDeck, starship, cyberpunk, medieval, reactor, arcade
 
     static let defaultsKey = "skin"
 
@@ -33,6 +33,7 @@ enum SkinID: String, CaseIterable, Identifiable {
         case .cyberpunk: return "Cyberpunk"
         case .medieval: return "Medieval Hall"
         case .reactor: return "Reactor Control Room"
+        case .arcade: return "Retro Arcade"
         }
     }
 
@@ -45,6 +46,7 @@ enum SkinID: String, CaseIterable, Identifiable {
         case .cyberpunk: return "CYBER"
         case .medieval: return "MEDIEVAL"
         case .reactor: return "REACTOR"
+        case .arcade: return "ARCADE"
         }
     }
 
@@ -56,6 +58,7 @@ enum SkinID: String, CaseIterable, Identifiable {
         case .cyberpunk: return CyberpunkSkin()
         case .medieval: return MedievalSkin()
         case .reactor: return ReactorSkin()
+        case .arcade: return ArcadeSkin()
         }
     }
 }
@@ -71,6 +74,10 @@ struct GridMetrics {
 struct TileModel {
     let session: Session
     let elapsed: TimeInterval
+    var pinned = false
+
+    /// Pinned idle tiles get their own color in every skin, so they stand apart from ordinary idle ones.
+    var pinnedIdle: Bool { pinned && session.status == .idle }
 
     var name: String { session.name }
     var project: String { session.project }
@@ -101,9 +108,9 @@ struct TileState {
 }
 
 struct PanelSummary {
-    var waiting = 0, idle = 0, busy = 0, other = 0, offline = 0
+    var waiting = 0, idle = 0, busy = 0, other = 0, dormant = 0, offline = 0
     var online: Int { waiting + idle + busy + other }
-    var total: Int { online + offline }
+    var total: Int { online + dormant + offline }
 
     init(_ sessions: [Session]) {
         for s in sessions {
@@ -112,6 +119,7 @@ struct PanelSummary {
             case .idle: idle += 1
             case .busy: busy += 1
             case .unknown: other += 1
+            case .dormant: dormant += 1
             case .offline: offline += 1
             }
         }

@@ -19,26 +19,30 @@ struct ControlStyle {
     func font(_ size: CGFloat, _ weight: Font.Weight) -> Font { .system(size: size, weight: weight, design: design) }
 }
 
-/// Bottom strip: SHOW ALL switch, STATUS knob, STANDBY fader, SKIN selector.
+/// Bottom strip: SHOW ALL, PINNED and DORMANT switches, STATUS knob, STANDBY fader, SKIN selector.
 struct ControlDeck: View {
     static let visibleKey = "showControls"
 
     let style: ControlStyle
     @Binding var showAll: Bool
+    @Binding var showPinned: Bool
+    @Binding var showDormant: Bool
     @Binding var status: StatusFilter
     @Binding var standbyStop: Int
     @Binding var skin: SkinID
     /// Live sessions the filters currently hide.
     let hidden: Int
+    /// Dormant sessions the DORMANT switch would show (or is showing).
+    let dormant: Int
 
     var body: some View {
         let statuses = StatusFilter.allCases
         let knobIndex = statuses.firstIndex(of: status) ?? 0
-        // The fader only matters while idle sessions can show.
+        // The fader only matters while idle or dormant sessions can show.
         let faderLive = !showAll && (status == .any || status == .idle)
         VStack(spacing: 6) {
             Rectangle().fill(style.track).frame(height: 1)
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
                 Labeled(style: style, caption: "SHOW ALL",
                         value: showAll ? "ON" : (hidden > 0 ? "\(hidden) HIDDEN" : "OFF")) {
                     ToggleSwitch(style: style, isOn: showAll) { showAll.toggle() }
@@ -50,6 +54,29 @@ struct ControlDeck: View {
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { showAll.toggle() }
                 .help("Show every live session, ignoring the status and standby filters")
+
+                Labeled(style: style, caption: "PINNED", value: showPinned ? "SHOW" : "HIDE") {
+                    ToggleSwitch(style: style, isOn: showPinned) { showPinned.toggle() }
+                }
+                .fixedSize()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Show pinned tiles")
+                .accessibilityValue(showPinned ? "On" : "Off")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { showPinned.toggle() }
+                .help("Show or hide pinned tiles, including ones whose session has ended")
+
+                Labeled(style: style, caption: "DORMANT",
+                        value: showDormant ? "ON" : (dormant > 0 ? "\(dormant) HIDDEN" : "OFF")) {
+                    ToggleSwitch(style: style, isOn: showDormant) { showDormant.toggle() }
+                }
+                .fixedSize()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Show dormant sessions")
+                .accessibilityValue(showDormant ? "On" : "Off")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { showDormant.toggle() }
+                .help("Also show sessions from the Claude app's sidebar that aren't running, within the standby window")
 
                 Labeled(style: style, caption: "STATUS", value: status.label) {
                     Knob(style: style, count: statuses.count, index: knobIndex) { status = statuses[$0] }
@@ -77,7 +104,7 @@ struct ControlDeck: View {
                     let i = standbyStop + (dir == .increment ? 1 : -1)
                     if TileFilter.standbyStops.indices.contains(i) { standbyStop = i }
                 }
-                .help("How long idle (standby) sessions stay on the panel; ∞ keeps them all")
+                .help("How long idle (standby) and dormant sessions stay on the panel; ∞ keeps them all")
 
                 Labeled(style: style, caption: "SKIN", value: skin.shortName) {
                     SkinButton(style: style, skin: $skin)

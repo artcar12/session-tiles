@@ -19,12 +19,15 @@ struct CyberpunkSkin: Skin {
         .system(size: size, weight: weight).width(.condensed)
     }
 
+    static let pinnedIdle = Color(hex: 0x7CFF4F)
+
     static func color(_ status: SessionStatus) -> Color {
         switch status {
         case .waiting: return pink
         case .idle:    return Color(hex: 0xFFD23F)
         case .busy:    return cyan
         case .unknown: return Color(hex: 0xA78BFA)
+        case .dormant: return Color(hex: 0x5A5A8A)
         case .offline: return Color(hex: 0x4A4260)
         }
     }
@@ -111,7 +114,7 @@ private struct CyberTile: View {
     let model: TileModel
     let state: TileState
 
-    private var color: Color { CyberpunkSkin.color(model.status) }
+    private var color: Color { model.pinnedIdle ? CyberpunkSkin.pinnedIdle : CyberpunkSkin.color(model.status) }
     private var alarm: Bool { model.status == .waiting && !state.reduceMotion }
 
     private var tag: String {
@@ -120,6 +123,7 @@ private struct CyberTile: View {
         case .idle: return "待機"
         case .busy: return "稼働"
         case .unknown: return "不明"
+        case .dormant: return "休眠"
         case .offline: return "切断"
         }
     }
@@ -160,7 +164,7 @@ private struct CyberTile: View {
                     shape.stroke(color.opacity(0.5), lineWidth: 4).blur(radius: 4)
                     shape.strokeBorder(color, lineWidth: 1.5)
                 }
-                .opacity(model.status == .offline ? 0.5 : (state.hovering ? 1 : 0.9))
+                .opacity(model.status.isAsleep ? 0.5 : (state.hovering ? 1 : 0.9))
                 .flicker(alarm, .neon)
             }
         )
@@ -180,7 +184,7 @@ private struct CyberTile: View {
                 text.foregroundStyle(CyberpunkSkin.pink.opacity(0.8)).offset(x: -1.2)
                 text.foregroundStyle(CyberpunkSkin.cyan.opacity(0.7)).offset(x: 1.2)
             }
-            text.foregroundStyle(model.status == .offline ? Color(hex: 0x8C7AA8) : .white)
+            text.foregroundStyle(model.status.isAsleep ? Color(hex: 0x8C7AA8) : .white)
         }
     }
 
@@ -202,6 +206,8 @@ private struct CyberTile: View {
             Text("// IDLE").font(font).foregroundStyle(color.opacity(0.8))
         case .unknown:
             Text("// \(model.rawStatus.uppercased())").font(font).foregroundStyle(color).lineLimit(1)
+        case .dormant:
+            Text("// SLEEP MODE").font(font).foregroundStyle(color)
         case .offline:
             Text("// FLATLINED").font(font).foregroundStyle(color)
         }

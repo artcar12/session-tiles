@@ -17,12 +17,15 @@ struct StarshipSkin: Skin {
                                 capEdge: cyan.opacity(0.7), label: Color(hex: 0x5E8AA0), value: Color(hex: 0xBFEFFF),
                                 design: .monospaced, radius: 1.5, glow: true)
 
+    static let pinnedIdle = Color(hex: 0xC77DFF)
+
     static func color(_ status: SessionStatus) -> Color {
         switch status {
         case .waiting: return Color(hex: 0xFF3B30)
         case .idle:    return Color(hex: 0xFFB000)
         case .busy:    return cyan
         case .unknown: return Color(hex: 0x8FA3AD)
+        case .dormant: return Color(hex: 0x5A7A8C)
         case .offline: return Color(hex: 0x4A5A64)
         }
     }
@@ -147,7 +150,7 @@ private struct StarshipStation: View {
     let model: TileModel
     let state: TileState
 
-    private var color: Color { StarshipSkin.color(model.status) }
+    private var color: Color { model.pinnedIdle ? StarshipSkin.pinnedIdle : StarshipSkin.color(model.status) }
     private var alarm: Bool { model.status == .waiting && !state.reduceMotion }
 
     var body: some View {
@@ -209,6 +212,8 @@ private struct StarshipStation: View {
             Text("STANDBY").font(font).foregroundStyle(color.opacity(0.85))
         case .unknown:
             Text("STATUS \(model.rawStatus.uppercased())").font(font).foregroundStyle(color).lineLimit(1)
+        case .dormant:
+            Text("❄ CRYOSLEEP").font(font).foregroundStyle(color)
         case .offline:
             Text("◌ SIGNAL LOST").font(font).foregroundStyle(color)
         }
