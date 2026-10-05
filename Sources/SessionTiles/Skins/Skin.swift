@@ -87,19 +87,16 @@ struct TileModel {
     var rawStatus: String { session.rawStatus }
     var waitingFor: String? { session.waitingFor }
 
-    /// "45s", "12m", "3h 05m"
+    /// "0m", "12m", "3h 05m"
     var shortDuration: String {
-        let s = max(0, Int(elapsed))
-        if s < 60 { return "\(s)s" }
-        if s < 3600 { return "\(s / 60)m" }
-        return String(format: "%dh %02dm", s / 3600, (s % 3600) / 60)
+        let m = max(0, Int(elapsed)) / 60
+        return m < 60 ? "\(m)m" : String(format: "%dh %02dm", m / 60, m % 60)
     }
 
-    /// "04:07" or "1:04:07"
+    /// Hours and minutes: "00:04", "01:04", "52:10"
     var clockDuration: String {
-        let s = max(0, Int(elapsed))
-        return s < 3600 ? String(format: "%02d:%02d", s / 60, s % 60)
-                        : String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+        let m = max(0, Int(elapsed)) / 60
+        return String(format: "%02d:%02d", m / 60, m % 60)
     }
 }
 

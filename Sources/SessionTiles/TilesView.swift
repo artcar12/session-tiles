@@ -18,10 +18,12 @@ struct TilesView: View {
         let skin = skinID.skin
         let filter = TileFilter(showAll: showAll, status: status, standbyStop: standbyStop, showPinned: showPinned,
                                 showDormant: showDormant)
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let result = VisibilityRules.ordered(store.sessions, pinned: pins.pins, dormant: index.entries,
+        // Times show whole minutes, so a few seconds' lag is invisible and saves a grid relayout per second.
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            let result = VisibilityRules.ordered(store.sessions, pinned: pins.pins, index: index.entries,
                                                  filter: filter, now: context.date)
             let visible = result.tiles
+            let records = Dictionary(index.entries.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             VStack(alignment: .leading, spacing: skin.grid.spacing) {
                 skin.header(PanelSummary(visible))
                 if let err = store.fatalError {
@@ -47,7 +49,10 @@ struct TilesView: View {
                                                model: TileModel(session: s, elapsed: context.date.timeIntervalSince(s.statusSince),
                                                               pinned: pins.isPinned(s.id), account: index.badges[s.id]),
                                                pinned: pins.isPinned(s.id),
-                                               reduceMotion: reduceMotion) { pins.toggle(s) }
+                                               archived: records[s.id]?.archived,
+                                               reduceMotion: reduceMotion,
+                                               togglePin: { pins.toggle(s) },
+                                               toggleArchived: { setArchived(s, !(records[s.id]?.archived ?? false)) })
                                 }
                             }
                             .padding(6)   // room for glows/shadows so the scroll view doesn't clip them
@@ -80,6 +85,18 @@ struct TilesView: View {
         .background(skin.background().ignoresSafeArea())
         .frame(minWidth: showControls ? 360 : 200, minHeight: showControls ? 170 : 100)
     }
+
+    private func setArchived(_ s: Session, _ archived: Bool) {
+        do {
+            try index.setArchived(s.id, archived)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Couldn't \(archived ? "archive" : "unarchive") “\(s.name)”"
+            alert.informativeText = error.localizedDescription
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
+    }
 }
 
 /// Shared click + hover handling; the skin only draws.
@@ -87,8 +104,11 @@ private struct TileButton: View {
     let skin: any Skin
     let model: TileModel
     let pinned: Bool
+    /// The archived flag in the Claude app's record; nil when there's no record to change.
+    let archived: Bool?
     let reduceMotion: Bool
     let togglePin: () -> Void
+    let toggleArchived: () -> Void
     @State private var hovering = false
 
     var body: some View {
@@ -96,8 +116,15 @@ private struct TileButton: View {
             Color.clear
         }
         .buttonStyle(SkinButtonStyle(skin: skin, model: model, hovering: hovering, reduceMotion: reduceMotion))
+        // Archived tiles only show under SHOW ALL; dim them so they read as set aside.
+        .opacity(archived == true ? 0.45 : 1)
         .overlay(alignment: .topTrailing) {
-            PinBadge(pinned: pinned, visible: pinned || hovering, action: togglePin)
+            HStack(spacing: -4) {
+                if let archived {
+                    ArchiveBadge(archived: archived, visible: hovering || archived, action: toggleArchived)
+                }
+                PinBadge(pinned: pinned, visible: pinned || hovering, action: togglePin)
+            }
         }
         .overlay(alignment: .topLeading) {
             if let account = model.account { AccountTag(text: account, skin: skin) }
@@ -106,6 +133,10 @@ private struct TileButton: View {
         .contextMenu {
             Button("Open in Claude", action: open)
             Button(pinned ? "Unpin" : "Pin", action: togglePin)
+            if let archived {
+                Divider()
+                Button(archived ? "Unarchive" : "Archive", action: toggleArchived)
+            }
         }
         .help("\(model.name)\n\(model.project) · \(model.rawStatus)\(pinned ? " · pinned" : "")"
               + "\(model.account.map { " · account \($0)" } ?? "")\nClick to open in Claude")
@@ -113,6 +144,29 @@ private struct TileButton: View {
 
     private func open() {
         if let url = model.session.deepLink { NSWorkspace.shared.open(url) }
+    }
+}
+
+/// Archive toggle beside the pin: shown on hover, and always on archived tiles.
+private struct ArchiveBadge: View {
+    let archived: Bool
+    let visible: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: archived ? "arrow.uturn.backward" : "archivebox")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.6), radius: 1.5)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(visible ? 0.75 : 0)
+        .allowsHitTesting(visible)
+        .help(archived ? "Unarchive this session" : "Archive this session in Claude (shows in its sidebar after Claude restarts)")
+        .accessibilityLabel(archived ? "Unarchive" : "Archive")
     }
 }
 
