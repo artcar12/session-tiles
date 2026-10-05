@@ -175,7 +175,17 @@ private struct StarshipStation: View {
                     .foregroundStyle(color)
             }
             .font(.system(size: 9, weight: .medium, design: .monospaced))
-            statusLine
+            HStack(spacing: 4) {
+                statusLine
+                Spacer(minLength: 4)
+                TagRow(tags: model.tags) { t in
+                    Text(t)
+                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(StarshipSkin.cyan)
+                        .padding(.horizontal, 3).padding(.vertical, 0.5)
+                        .overlay(Rectangle().strokeBorder(StarshipSkin.cyan.opacity(0.6), lineWidth: 1))
+                }
+            }
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 7)

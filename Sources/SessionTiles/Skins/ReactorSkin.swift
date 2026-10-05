@@ -238,6 +238,13 @@ private struct ReactorModule: View {
                         .padding(.horizontal, 3).padding(.vertical, 1)
                         .background(Rectangle().fill(Color(hex: 0x141412)))
                     Spacer(minLength: 0)
+                    TagRow(tags: model.tags, spacing: 2) { t in
+                        Text(t)
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundStyle(ReactorSkin.engraving)
+                            .padding(.horizontal, 3).padding(.vertical, 1)
+                            .background(Rectangle().fill(ReactorSkin.plate))
+                    }
                     Dial(status: model.status, animated: !state.reduceMotion)
                 }
                 Text(model.status == .waiting ? (model.waitingFor ?? "operator required").uppercased()

@@ -146,6 +146,15 @@ private struct CyberTile: View {
                     .foregroundStyle(CyberpunkSkin.cyan.opacity(0.7))
                 Text("//").foregroundStyle(color.opacity(0.6))
                 Spacer(minLength: 4)
+                TagRow(tags: model.tags, spacing: 2) { t in
+                    Text(t)
+                        .font(.system(size: 8.5, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 3).padding(.vertical, 1)
+                        .background(Rectangle().fill(t == model.tags.first && model.tags.count > 1
+                                                     ? CyberpunkSkin.cyan : CyberpunkSkin.pink))
+                        .opacity(model.status.isAsleep ? 0.6 : 1)
+                }
                 Text(model.clockDuration).foregroundStyle(color)
             }
             .font(.system(size: 9.5, weight: .medium, design: .monospaced))

@@ -46,6 +46,12 @@ private struct ClassicTile: View {
             HStack(spacing: 4) {
                 Text(model.project).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 4)
+                TagRow(tags: model.tags) { t in
+                    Text(t)
+                        .font(.system(size: 9, weight: .semibold))
+                        .padding(.horizontal, 4).padding(.vertical, 0.5)
+                        .background(Capsule().fill(.black.opacity(0.22)))
+                }
                 Text(model.shortDuration).monospacedDigit()
             }
             .font(.system(size: 10.5))

@@ -146,6 +146,12 @@ private struct DJPad: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .opacity(0.85)
+                    TagRow(tags: model.tags, spacing: 2) { t in
+                        Text(t)
+                            .font(.system(size: 8, weight: .heavy, design: .rounded))
+                            .padding(.horizontal, 3.5).padding(.vertical, 1)
+                            .background(Capsule().fill(.black.opacity(0.35)))
+                    }
                     Spacer(minLength: 2)
                     if model.status == .busy {
                         LevelMeter(animated: !state.reduceMotion)

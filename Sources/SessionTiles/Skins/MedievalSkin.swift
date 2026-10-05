@@ -158,10 +158,19 @@ private struct HeraldicBanner: View {
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 2)
                 statusLine
-                Text(model.shortDuration)
-                    .font(.system(size: 9.5, weight: .semibold, design: .serif))
-                    .monospacedDigit()
-                    .foregroundStyle(MedievalSkin.gold.opacity(0.9))
+                HStack(spacing: 5) {
+                    Text(model.shortDuration)
+                        .font(.system(size: 9.5, weight: .semibold, design: .serif))
+                        .monospacedDigit()
+                        .foregroundStyle(MedievalSkin.gold.opacity(0.9))
+                    TagRow(tags: model.tags) { t in
+                        Text(t)
+                            .font(.system(size: 8, weight: .bold, design: .serif))
+                            .foregroundStyle(MedievalSkin.gold)
+                            .padding(.horizontal, 3).padding(.vertical, 0.5)
+                            .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(MedievalSkin.gold.opacity(0.7), lineWidth: 0.8))
+                    }
+                }
             }
             .shadow(color: .black.opacity(0.5), radius: 1, y: 1)
             .padding(.horizontal, 9)

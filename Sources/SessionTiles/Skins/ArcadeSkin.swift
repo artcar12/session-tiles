@@ -191,7 +191,18 @@ private struct ArcadeTile: View {
                 Text("TIME \(model.clockDuration)").foregroundStyle(ArcadeSkin.yellow)
             }
             .font(.system(size: 9, weight: .bold, design: .monospaced))
-            statusLine
+            HStack(spacing: 4) {
+                statusLine
+                Spacer(minLength: 4)
+                TagRow(tags: model.tags) { t in
+                    Text(t)
+                        .font(.system(size: 8.5, weight: .black, design: .monospaced))
+                        .foregroundStyle(ArcadeSkin.yellow)
+                        .padding(.horizontal, 3).padding(.vertical, 1)
+                        .background(Rectangle().fill(Color(hex: 0x1C1C40)))
+                        .overlay(Rectangle().strokeBorder(Color(hex: 0x9A9AC8), lineWidth: 1))
+                }
+            }
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 8)
@@ -229,7 +240,9 @@ private struct ArcadeTile: View {
         case .busy:
             HStack(spacing: 6) {
                 Text("NOW PLAYING").font(font).foregroundStyle(color)
-                LEDChase(color: color, animated: !state.reduceMotion, count: 6,
+                    .lineLimit(1).layoutPriority(1)
+                // Shorter with source tags on the line, so the label doesn't wrap.
+                LEDChase(color: color, animated: !state.reduceMotion, count: model.tags.isEmpty ? 6 : 3,
                          segment: CGSize(width: 4, height: 4), spacing: 2, step: 0.12)
             }
         case .idle:

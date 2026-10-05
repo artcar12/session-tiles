@@ -46,11 +46,16 @@ live sessions still show, dimmed, with an undo icon to unarchive them. Claude re
 startup, so its sidebar catches up the next time Claude restarts.
 
 If you run more than one Claude instance side by side (say a second account started with
-`--user-data-dir=~/Library/Application Support/Claude-personal`), each tile gets a small letter badge on
-its top-left corner saying which one the session belongs to. The letter is the initial of the data folder's
-suffix (`Claude-personal` → **P**); the default `Claude` folder gets **D**. Set your own letters with
-`defaults write com.arthurcarroll.SessionTiles accountBadges -dict Claude W Claude-personal P`. With one
-instance there are no badges. A live session the instance hasn't recorded yet has no badge until it does.
+`--user-data-dir=~/Library/Application Support/Claude-personal`), each tile shows small source tags in its
+bottom rows, drawn in the skin's style: first the instance the session runs in, then the account that
+created it. The instance tag is the initial of the data folder's suffix (`Claude-personal` → **P**; the
+default `Claude` folder gets **D**). The account tag is the first two characters of the account's id
+folder. Set your own with
+`defaults write com.arthurcarroll.SessionTiles instanceBadges -dict Claude W Claude-personal P` and
+`defaults write com.arthurcarroll.SessionTiles accountBadges -dict <account-id> AC <account-id> WE`
+(the account ids are the folder names directly under `claude-code-sessions`). Each tag only shows when
+there is more than one instance, or account, to tell apart. A live session the instance hasn't recorded
+yet has no tags until it does.
 
 The app runs as a menu-bar extra with no Dock icon. The menu-bar item toggles the panel and quits the
 app; its icon shows a count when any session is waiting. Drag the panel by its background. It
@@ -129,8 +134,8 @@ format). The app:
 Only running sessions write those files. For dormant tiles the app also reads the Claude app's own record
 of every Code-tab session, `~/Library/Application Support/Claude*/claude-code-sessions/<id>/<id>/local_*.json`
 (title, cwd, `lastActivityAt`, `isArchived`; also undocumented), polled every 5s. Every `Claude*` data
-folder is read, so a second instance's sessions show up too; which folder a record sits in is what the
-account badges go by. If those folders are missing or their format changes, dormant tiles and badges just
+folder is read, so a second instance's sessions show up too; the instance folder and the account id folder a
+record sits in are what the source tags go by. If those folders are missing or their format changes, dormant tiles and badges just
 don't appear.
 
 Archiving edits that record directly: it swaps the single `"isArchived":false` for `true` (or back),
