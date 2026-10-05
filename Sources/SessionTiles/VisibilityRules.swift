@@ -101,18 +101,23 @@ enum VisibilityRules {
     /// Pinned tiles first, and always shown: a pinned session whose process has gone becomes an offline
     /// tile. Within each group: waiting (oldest first), then idle, then busy, then anything unrecognised,
     /// then dormant (most recent first), then offline. With `showPinned` off, pinned sessions are hidden
-    /// instead (unless `showAll`). `dormant` is the Claude app's session list; entries that are running or
-    /// pinned are skipped.
-    static func ordered(_ sessions: [Session], pinned allPins: [String: PinnedSession], dormant: [AppSessionEntry] = [],
+    /// instead (unless `showAll`).
+    ///
+    /// `index` is the Claude app's own session list: the source of dormant tiles and of the archived flag.
+    /// A session flagged archived there gets no tile, pinned or not; SHOW ALL still shows running ones so
+    /// they can be unarchived.
+    static func ordered(_ sessions: [Session], pinned allPins: [String: PinnedSession], index: [AppSessionEntry] = [],
                         filter: TileFilter, now: Date) -> Result {
         let pinned = filter.showPinned ? allPins : [:]
+        let archived = Set(index.filter(\.archived).map(\.id))
         let liveIDs = Set(sessions.map(\.id))
-        let offline = pinned.filter { !liveIDs.contains($0.key) }.map { Session(offline: $0.key, pin: $0.value) }
+        let offline = pinned.filter { !liveIDs.contains($0.key) && !archived.contains($0.key) }
+            .map { Session(offline: $0.key, pin: $0.value) }
         let shown = sessions.filter {
-            if !filter.showPinned && allPins[$0.id] != nil { return filter.showAll }
+            if archived.contains($0.id) || (!filter.showPinned && allPins[$0.id] != nil) { return filter.showAll }
             return pinned[$0.id] != nil || isVisible($0, filter: filter, now: now)
         }
-        let eligible = dormant
+        let eligible = index
             .filter { !liveIDs.contains($0.id) && allPins[$0.id] == nil && isDormantVisible($0, filter: filter, now: now) }
         let asleep = filter.showDormant ? eligible.map(Session.init(dormant:)) : []
         let tiles = (shown + offline + asleep).sorted {
