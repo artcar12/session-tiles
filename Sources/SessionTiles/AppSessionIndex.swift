@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// One session as the Claude app records it, running or not.
 struct AppSessionEntry: Equatable {
@@ -7,6 +8,8 @@ struct AppSessionEntry: Equatable {
     let cwd: String
     let lastActivity: Date
     let archived: Bool
+    /// The record file, for `setArchived`.
+    let path: String
 }
 
 /// Raw shape of the Claude app's per-session metadata file. Undocumented internal format: every field
@@ -17,6 +20,19 @@ private struct AppSessionFile: Decodable {
     let cwd: String?
     let lastActivityAt: Double?
     let isArchived: Bool?
+}
+
+enum ArchiveError: LocalizedError {
+    case unknownSession
+    case unexpectedFormat(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unknownSession: return "The Claude app has no record of this session."
+        case .unexpectedFormat(let file):
+            return "\(file) doesn't contain a single isArchived flag in the expected form; the format may have changed."
+        }
+    }
 }
 
 /// Reads the Claude app's own record of every Code-tab session
@@ -76,7 +92,8 @@ final class AppSessionIndex: ObservableObject {
                             title: title.isEmpty ? (cwd as NSString).lastPathComponent : title,
                             cwd: cwd,
                             lastActivity: Date(timeIntervalSince1970: (f.lastActivityAt ?? 0) / 1000),
-                            archived: f.isArchived ?? false)
+                            archived: f.isArchived ?? false,
+                            path: path)
                     }
                     parsed[path] = (stamp, entry)
                     if let entry { found.append(entry) }
@@ -86,5 +103,36 @@ final class AppSessionIndex: ObservableObject {
         parsed = parsed.filter { seen.contains($0.key) }
         found.sort { $0.id < $1.id }
         if found != entries { entries = found }
+    }
+
+    /// Sets the archived flag in the session's record. The running Claude app keeps its session list in
+    /// memory and doesn't read this back: the change takes effect in its sidebar after it restarts, and is
+    /// reset whenever the app writes the record again (for instance when the session is used). The panel
+    /// reads the flag directly, so tiles follow it straight away.
+    ///
+    /// Only the flag's text is touched (`"isArchived":false` ↔ `true`), so the rest of the file stays
+    /// byte-for-byte as the app wrote it; the replacement is written atomically.
+    func setArchived(_ id: String, _ archived: Bool) throws {
+        guard let entry = entries.first(where: { $0.id == id }) else { throw ArchiveError.unknownSession }
+        let url = URL(fileURLWithPath: entry.path)
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let from = "\"isArchived\":\(!archived)", to = "\"isArchived\":\(archived)"
+        if !text.contains(from) && text.components(separatedBy: to).count == 2 { refresh(); return }  // already so
+        guard text.components(separatedBy: from).count == 2, !text.contains(to) else {
+            throw ArchiveError.unexpectedFormat(url.lastPathComponent)
+        }
+        // Write a sibling with the original's permissions (the app uses 0600), then rename it over.
+        let perms = try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] ?? 0o600
+        let tmp = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).sessiontiles")
+        guard FileManager.default.createFile(atPath: tmp.path, contents: Data(text.replacingOccurrences(of: from, with: to).utf8),
+                                             attributes: [.posixPermissions: perms]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        guard rename(tmp.path, url.path) == 0 else {
+            let err = POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            try? FileManager.default.removeItem(at: tmp)
+            throw err
+        }
+        refresh()
     }
 }

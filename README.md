@@ -38,6 +38,13 @@ so it stands apart from ordinary idle ones. If a pinned session's process ends, 
 **offline** tile counting time since it was last seen; clicking it still opens the session in Claude.
 Unpin it to remove it. Pins and control settings are remembered.
 
+Archive a tile with the box icon beside the pin (shows on hover) or **Archive** in its right-click menu.
+This sets the session's archived flag in the Claude app's own record, so the panel keeps no separate
+hidden list: an archived session disappears from the panel (pinned and dormant ones too) and comes back
+whenever Claude clears the flag, for example when you use the session again. With SHOW ALL on, archived
+live sessions still show, dimmed, with an undo icon to unarchive them. Claude reads the flag only at
+startup, so its sidebar catches up the next time Claude restarts.
+
 The app runs as a menu-bar extra with no Dock icon. The menu-bar item toggles the panel and quits the
 app; its icon shows a count when any session is waiting. Drag the panel by its background. It
 remembers its size and position.
@@ -49,7 +56,7 @@ of the panel, or from the menu-bar menu (**Skin ▸**). It switches live and is 
 
 - **Classic**: flat rounded tiles over the system blur; follows light/dark mode.
 - **DJ Deck**: backlit rubber pads on a black deck. Waiting pads strobe, busy pads run an EQ meter,
-  idle pads sit dimly lit. Times read like a track clock (`04:07`).
+  idle pads sit dimly lit. Times read like a clock, hours and minutes (`01:04`).
 - **Starship Console**: chamfered, outlined stations with glowing LEDs, scanlines and monospaced
   readouts. Waiting stations raise a red alert, busy ones run an LED chase, idle ones show STANDBY.
 
@@ -116,6 +123,10 @@ Only running sessions write those files. For dormant tiles the app also reads th
 of every Code-tab session, `~/Library/Application Support/Claude/claude-code-sessions/<id>/<id>/local_*.json`
 (title, cwd, `lastActivityAt`, `isArchived`; also undocumented), polled every 5s. If that folder is missing
 or its format changes, dormant tiles just don't appear.
+
+Archiving edits that record directly: it swaps the single `"isArchived":false` for `true` (or back),
+writes a sibling file with the original permissions and renames it over, and refuses with an alert if the
+file doesn't contain exactly one such flag. It doesn't do anything else Claude's own Archive might.
 
 If the folder can't be read, the panel shows a red error instead of tiles. If a live session's file fails
 to parse on two consecutive reads, an orange banner names the file(s) above the tiles that did parse.

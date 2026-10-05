@@ -83,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                     guard let self else { return }
                     self.panel?.writeSnapshot(to: path)
                     let lines = VisibilityRules.ordered(self.store.sessions, pinned: self.pins.pins,
-                                                        dormant: self.index.entries, filter: .saved, now: Date()).tiles
+                                                        index: self.index.entries, filter: .saved, now: Date()).tiles
                         .map { "\($0.rawStatus)\t\($0.project)\t\($0.name)\t\($0.waitingFor ?? "")\t\($0.id)" }
                     try? (lines.joined(separator: "\n") + "\n").write(toFile: path + ".txt", atomically: true, encoding: .utf8)
                 }
