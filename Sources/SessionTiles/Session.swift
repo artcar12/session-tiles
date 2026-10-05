@@ -17,8 +17,12 @@ struct SessionFile: Decodable {
 }
 
 enum SessionStatus: Int, Comparable {
-    /// `offline` never comes from a file: it marks a pinned session whose process has gone.
-    case waiting = 0, idle, busy, unknown, offline
+    /// Neither comes from a session file. `dormant`: a session in the Claude app's sidebar with no running
+    /// process. `offline`: a pinned session whose process has gone.
+    case waiting = 0, idle, busy, unknown, dormant, offline
+
+    /// No process behind the tile.
+    var isAsleep: Bool { self == .dormant || self == .offline }
 
     init(raw: String?) {
         switch raw {
@@ -71,6 +75,18 @@ struct Session: Identifiable, Equatable {
         rawStatus = "offline"
         waitingFor = nil
         statusSince = pin.lastSeen
+    }
+
+    /// Tile for a session the Claude app knows about but isn't running.
+    init(dormant e: AppSessionEntry) {
+        id = e.id
+        pid = 0
+        name = e.title
+        project = Session.projectName(cwd: e.cwd)
+        status = .dormant
+        rawStatus = "dormant"
+        waitingFor = nil
+        statusSince = e.lastActivity
     }
 
     /// Last path component of cwd, with `.claude/worktrees/<name>` collapsed to the repo name.

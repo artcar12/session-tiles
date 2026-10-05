@@ -20,6 +20,9 @@ struct ReactorSkin: Skin {
         .system(size: size, weight: weight, design: .monospaced)
     }
 
+    /// Blue lamp for a pinned idle session.
+    static let pinnedIdle = Color(hex: 0x4FA8FF)
+
     /// Lamp colors.
     static func color(_ status: SessionStatus) -> Color {
         switch status {
@@ -27,6 +30,7 @@ struct ReactorSkin: Skin {
         case .idle:    return Color(hex: 0xFFAA22)
         case .busy:    return Color(hex: 0x4BE065)
         case .unknown: return Color(hex: 0xF4F1E0)
+        case .dormant: return Color(hex: 0x6E7A86)
         case .offline: return Color(hex: 0x3C3F38)
         }
     }
@@ -110,13 +114,14 @@ private struct Lamp: View {
     let status: SessionStatus
     let flashing: Bool
     var size: CGFloat = 12
+    var color: Color?
 
     var body: some View {
-        let lit = status != .offline
+        let lit = !status.isAsleep
         ZStack {
             Circle().fill(Color(hex: 0x111210))
                 .frame(width: size + 4, height: size + 4)
-            BlinkingFill(color: ReactorSkin.color(status), cornerRadius: size / 2, blinking: flashing,
+            BlinkingFill(color: color ?? ReactorSkin.color(status), cornerRadius: size / 2, blinking: flashing,
                          low: 0.15, period: 0.45, glow: lit ? size * 0.6 : 0)
                 .frame(width: size, height: size)
             // Glass highlight.
@@ -140,7 +145,7 @@ private struct Dial: View {
         case .busy: return [-25, 20, -5, 38, 5, 30, -15]    // hunting around the working range
         case .idle: return [-48]
         case .unknown: return [0]
-        case .offline: return [-60]
+        case .dormant, .offline: return [-60]
         }
     }
 
@@ -192,8 +197,9 @@ private struct ReactorModule: View {
         switch model.status {
         case .waiting: return ("SCRAM", Color(hex: 0xC8281E))
         case .busy: return ("RUN", Color(hex: 0x2E7D3A))
-        case .idle: return ("STBY", Color(hex: 0x9A6510))
+        case .idle: return ("STBY", model.pinned ? Color(hex: 0x2A6FB0) : Color(hex: 0x9A6510))
         case .unknown: return (model.rawStatus.uppercased(), ReactorSkin.ink)
+        case .dormant: return ("COLD", Color(hex: 0x3D5A75))
         case .offline: return ("OFF", ReactorSkin.ink.opacity(0.5))
         }
     }
@@ -216,7 +222,8 @@ private struct ReactorModule: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .center, spacing: 6) {
-                    Lamp(status: model.status, flashing: flashing)
+                    Lamp(status: model.status, flashing: flashing,
+                         color: model.pinnedIdle ? ReactorSkin.pinnedIdle : nil)
                     let (text, color) = stamp
                     Text(text)
                         .font(.system(size: 8.5, weight: .heavy, design: .monospaced))
@@ -254,7 +261,7 @@ private struct ReactorModule: View {
         .clipShape(RoundedRectangle(cornerRadius: 3))
         .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(hex: 0x2B2F27), lineWidth: 1.5))
         .shadow(color: .black.opacity(0.35), radius: 2, y: 1.5)
-        .opacity(model.status == .offline ? 0.7 : 1)
+        .opacity(model.status.isAsleep ? 0.7 : 1)
         .scaleEffect(state.pressed ? 0.97 : 1)
         .animation(.easeOut(duration: 0.12), value: state.pressed)
         .animation(.easeOut(duration: 0.15), value: state.hovering)

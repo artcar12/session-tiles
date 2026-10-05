@@ -15,12 +15,15 @@ struct DJDeckSkin: Skin {
         .system(size: size, weight: weight, design: .rounded)
     }
 
+    static let pinnedIdle = Color(hex: 0xB45CFF)
+
     static func color(_ status: SessionStatus) -> Color {
         switch status {
         case .waiting: return Color(hex: 0xFF2D55)
         case .idle:    return Color(hex: 0xFFA41B)
         case .busy:    return Color(hex: 0x1EA7FF)
         case .unknown: return Color(hex: 0x9A9AA5)
+        case .dormant: return Color(hex: 0x3E4A63)
         case .offline: return Color(hex: 0x4A4A55)
         }
     }
@@ -87,7 +90,7 @@ private struct DJPad: View {
     let model: TileModel
     let state: TileState
 
-    private var color: Color { DJDeckSkin.color(model.status) }
+    private var color: Color { model.pinnedIdle ? DJDeckSkin.pinnedIdle : DJDeckSkin.color(model.status) }
 
     /// How brightly the pad is lit, 0...1.
     private var level: Double {
@@ -97,7 +100,7 @@ private struct DJPad: View {
         case .busy: base = 0.85
         case .idle: base = 0.72
         case .unknown: base = 0.4
-        case .offline: base = 0.3
+        case .dormant, .offline: base = 0.3
         }
         return min(1, base + (state.hovering ? 0.15 : 0) + (state.pressed ? 0.2 : 0))
     }
@@ -133,7 +136,7 @@ private struct DJPad: View {
                         .lineLimit(1)
                         .padding(.horizontal, 4).padding(.vertical, 1)
                         .background(Capsule().fill(.black.opacity(0.35)))
-                } else if model.status == .unknown || model.status == .offline {
+                } else if model.status == .unknown || model.status.isAsleep {
                     Text(model.rawStatus.uppercased()).font(.system(size: 8.5, weight: .heavy)).lineLimit(1)
                 }
                 HStack(alignment: .bottom, spacing: 4) {

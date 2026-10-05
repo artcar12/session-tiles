@@ -19,13 +19,16 @@ struct MedievalSkin: Skin {
         .system(size: size, weight: weight, design: .serif)
     }
 
-    /// Heraldic tinctures: gules for a summons, azure at work, ochre at rest.
+    /// Heraldic tinctures: gules for a summons, azure at work, ochre at rest, purpure for a pinned rest.
+    static let pinnedIdle = Color(hex: 0x5B2A86)
+
     static func color(_ status: SessionStatus) -> Color {
         switch status {
         case .waiting: return Color(hex: 0xA3201E)
         case .idle:    return Color(hex: 0x8A6A22)
         case .busy:    return Color(hex: 0x24508F)
         case .unknown: return Color(hex: 0x4F4F55)
+        case .dormant: return Color(hex: 0x3E4A3A)
         case .offline: return Color(hex: 0x3A3633)
         }
     }
@@ -114,9 +117,9 @@ private struct HeraldicBanner: View {
     let model: TileModel
     let state: TileState
 
-    private var color: Color { MedievalSkin.color(model.status) }
+    private var color: Color { model.pinnedIdle ? MedievalSkin.pinnedIdle : MedievalSkin.color(model.status) }
     private var burning: Bool { model.status == .waiting && !state.reduceMotion }
-    private var dim: Bool { model.status == .idle || model.status == .offline }
+    private var dim: Bool { (model.status == .idle && !model.pinned) || model.status.isAsleep }
 
     private var charge: String {
         switch model.status {
@@ -124,6 +127,7 @@ private struct HeraldicBanner: View {
         case .busy: return "hammer.fill"
         case .idle: return "moon.fill"
         case .unknown: return "questionmark"
+        case .dormant: return "zzz"
         case .offline: return "shield.slash"
         }
     }
@@ -209,6 +213,8 @@ private struct HeraldicBanner: View {
             Text("At rest").font(font).foregroundStyle(MedievalSkin.parchment.opacity(0.6))
         case .unknown:
             Text(model.rawStatus).font(font).foregroundStyle(MedievalSkin.parchment.opacity(0.7)).lineLimit(1)
+        case .dormant:
+            Text("Slumbering").font(font).foregroundStyle(MedievalSkin.parchment.opacity(0.55))
         case .offline:
             Text("Departed").font(font).foregroundStyle(MedievalSkin.parchment.opacity(0.5))
         }

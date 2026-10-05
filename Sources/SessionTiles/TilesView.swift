@@ -4,18 +4,23 @@ import AppKit
 struct TilesView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var pins: PinStore
+    @ObservedObject var index: AppSessionIndex
     @AppStorage(SkinID.defaultsKey) private var skinID: SkinID = .classic
     @AppStorage(TileFilter.Keys.showAll) private var showAll = false
     @AppStorage(TileFilter.Keys.status) private var status: StatusFilter = .any
     @AppStorage(TileFilter.Keys.standbyStop) private var standbyStop = TileFilter.defaultStandbyStop
+    @AppStorage(TileFilter.Keys.showPinned) private var showPinned = true
+    @AppStorage(TileFilter.Keys.showDormant) private var showDormant = false
     @AppStorage(ControlDeck.visibleKey) private var showControls = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let skin = skinID.skin
-        let filter = TileFilter(showAll: showAll, status: status, standbyStop: standbyStop)
+        let filter = TileFilter(showAll: showAll, status: status, standbyStop: standbyStop, showPinned: showPinned,
+                                showDormant: showDormant)
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            let result = VisibilityRules.ordered(store.sessions, pinned: pins.pins, filter: filter, now: context.date)
+            let result = VisibilityRules.ordered(store.sessions, pinned: pins.pins, dormant: index.entries,
+                                                 filter: filter, now: context.date)
             let visible = result.tiles
             VStack(alignment: .leading, spacing: skin.grid.spacing) {
                 skin.header(PanelSummary(visible))
@@ -39,7 +44,8 @@ struct TilesView: View {
                                       spacing: skin.grid.spacing) {
                                 ForEach(visible) { s in
                                     TileButton(skin: skin,
-                                               model: TileModel(session: s, elapsed: context.date.timeIntervalSince(s.statusSince)),
+                                               model: TileModel(session: s, elapsed: context.date.timeIntervalSince(s.statusSince),
+                                                              pinned: pins.isPinned(s.id)),
                                                pinned: pins.isPinned(s.id),
                                                reduceMotion: reduceMotion) { pins.toggle(s) }
                                 }
@@ -49,8 +55,10 @@ struct TilesView: View {
                         }
                     }
                     if showControls {
-                        ControlDeck(style: skin.controls, showAll: $showAll, status: $status,
-                                    standbyStop: $standbyStop, skin: $skinID, hidden: result.hidden)
+                        ControlDeck(style: skin.controls, showAll: $showAll, showPinned: $showPinned,
+                                    showDormant: $showDormant, status: $status,
+                                    standbyStop: $standbyStop, skin: $skinID, hidden: result.hidden,
+                                    dormant: result.dormant)
                     }
                 }
             }
@@ -68,7 +76,7 @@ struct TilesView: View {
             Toggle("Show Controls", isOn: $showControls)
         }
         .background(skin.background().ignoresSafeArea())
-        .frame(minWidth: showControls ? 290 : 200, minHeight: showControls ? 170 : 100)
+        .frame(minWidth: showControls ? 360 : 200, minHeight: showControls ? 170 : 100)
     }
 }
 

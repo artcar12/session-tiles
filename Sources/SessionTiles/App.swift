@@ -54,6 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let store = ProcessInfo.processInfo.environment["SESSION_TILES_DIR"]
         .map { SessionStore(directory: URL(fileURLWithPath: $0, isDirectory: true)) } ?? SessionStore()
     let pins = PinStore()
+    let index = ProcessInfo.processInfo.environment["SESSION_TILES_APP_DIR"]
+        .map { AppSessionIndex(directory: URL(fileURLWithPath: $0, isDirectory: true)) } ?? AppSessionIndex()
     private var panel: FloatingPanel?
     private var pinSync: AnyCancellable?
     private static let visibleKey = "panelVisible"
@@ -66,7 +68,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             MainActor.assumeIsolated { pins.update(from: sessions) }
         }
         store.start()
-        let p = FloatingPanel(content: TilesView(store: store, pins: pins))
+        index.start()
+        let p = FloatingPanel(content: TilesView(store: store, pins: pins, index: index))
         panel = p
         if UserDefaults.standard.object(forKey: Self.visibleKey) as? Bool ?? true {
             showPanel()
@@ -80,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                     guard let self else { return }
                     self.panel?.writeSnapshot(to: path)
                     let lines = VisibilityRules.ordered(self.store.sessions, pinned: self.pins.pins,
-                                                        filter: .saved, now: Date()).tiles
+                                                        dormant: self.index.entries, filter: .saved, now: Date()).tiles
                         .map { "\($0.rawStatus)\t\($0.project)\t\($0.name)\t\($0.waitingFor ?? "")\t\($0.id)" }
                     try? (lines.joined(separator: "\n") + "\n").write(toFile: path + ".txt", atomically: true, encoding: .utf8)
                 }
