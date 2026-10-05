@@ -135,7 +135,7 @@ Only running sessions write those files. For dormant tiles the app also reads th
 of every Code-tab session, `~/Library/Application Support/Claude*/claude-code-sessions/<id>/<id>/local_*.json`
 (title, cwd, `lastActivityAt`, `isArchived`; also undocumented), polled every 5s. Every `Claude*` data
 folder is read, so a second instance's sessions show up too; the instance folder and the account id folder a
-record sits in are what the source tags go by. If those folders are missing or their format changes, dormant tiles and badges just
+record sits in are what the source tags go by. If those folders are missing or their format changes, dormant tiles and tags just
 don't appear.
 
 Archiving edits that record directly: it swaps the single `"isArchived":false` for `true` (or back),
