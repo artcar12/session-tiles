@@ -76,7 +76,7 @@ struct TileModel {
     let elapsed: TimeInterval
     var pinned = false
     /// Where the session comes from: instance tag then account tag (["P", "AC"]); empty with one of each.
-    var tags: [String] = []
+    var tags: [SourceTag] = []
 
     /// Pinned idle tiles get their own color in every skin, so they stand apart from ordinary idle ones.
     var pinnedIdle: Bool { pinned && session.status == .idle }
@@ -102,9 +102,9 @@ struct TileModel {
 
 /// A tile's source tags in a row; the skin styles each one. Draws nothing when there are none.
 struct TagRow<Tag: View>: View {
-    let tags: [String]
+    let tags: [SourceTag]
     var spacing: CGFloat = 3
-    @ViewBuilder let tag: (String) -> Tag
+    @ViewBuilder let tag: (SourceTag) -> Tag
 
     var body: some View {
         if !tags.isEmpty {
@@ -140,6 +140,11 @@ struct PanelSummary {
             }
         }
     }
+}
+
+extension Array where Element == Color {
+    /// A source tag's color from a skin's tag palette.
+    func tag(_ t: SourceTag) -> Color { isEmpty ? .gray : self[t.slot % count] }
 }
 
 extension Color {

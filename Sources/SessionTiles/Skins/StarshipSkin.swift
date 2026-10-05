@@ -150,6 +150,9 @@ private struct StarshipStation: View {
     let model: TileModel
     let state: TileState
 
+    static let tagColors: [Color] = [Color(hex: 0x5FE3FF), Color(hex: 0xFF6AD5), Color(hex: 0x6BF09A), Color(hex: 0xFFE066),
+                                     Color(hex: 0xFFFFFF)]
+
     private var color: Color { model.pinnedIdle ? StarshipSkin.pinnedIdle : StarshipSkin.color(model.status) }
     private var alarm: Bool { model.status == .waiting && !state.reduceMotion }
 
@@ -179,11 +182,13 @@ private struct StarshipStation: View {
                 statusLine
                 Spacer(minLength: 4)
                 TagRow(tags: model.tags) { t in
-                    Text(t)
+                    let c = Self.tagColors.tag(t)
+                    Text(t.text)
                         .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(StarshipSkin.cyan)
+                        .foregroundStyle(c)
                         .padding(.horizontal, 3).padding(.vertical, 0.5)
-                        .overlay(Rectangle().strokeBorder(StarshipSkin.cyan.opacity(0.6), lineWidth: 1))
+                        .background(Rectangle().fill(c.opacity(0.12)))
+                        .overlay(Rectangle().strokeBorder(c.opacity(0.7), lineWidth: 1))
                 }
             }
         }

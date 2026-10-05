@@ -134,7 +134,7 @@ private struct TileButton: View {
             }
         }
         .help("\(model.name)\n\(model.project) · \(model.rawStatus)\(pinned ? " · pinned" : "")"
-              + model.tags.map { " · \($0)" }.joined() + "\nClick to open in Claude")
+              + model.tags.map { " · \($0.text)" }.joined() + "\nClick to open in Claude")
     }
 
     private func open() {

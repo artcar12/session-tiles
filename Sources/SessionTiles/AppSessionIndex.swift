@@ -50,7 +50,7 @@ final class AppSessionIndex: ObservableObject {
     @Published private(set) var entries: [AppSessionEntry] = []
     /// Tags per session id: the instance's when records come from more than one instance, then the
     /// account's when from more than one account. Sessions with neither are absent.
-    @Published private(set) var tags: [String: [String]] = [:]
+    @Published private(set) var tags: [String: [SourceTag]] = [:]
 
     /// nil: find every `Claude*` data folder on each poll.
     let directory: URL?
@@ -130,11 +130,20 @@ final class AppSessionIndex: ObservableObject {
         if found != entries { entries = found }
         let byInstance = Set(found.map(\.instance)).count > 1
         let byAccount = Set(found.map(\.account)).count > 1
-        var newTags: [String: [String]] = [:]
+        var newTags: [String: [SourceTag]] = [:]
         if byInstance || byAccount {
+            // Every distinct instance, then account, gets its own color slot, the same on every tile.
+            let instances = byInstance ? Array(Set(found.map(\.instance))).sorted() : []
+            let accounts = byAccount ? Array(Set(found.map(\.account))).sorted() : []
             for e in found where newTags[e.id] == nil {
-                newTags[e.id] = (byInstance ? [SessionTags.instance(e.instance)] : [])
-                    + (byAccount ? [SessionTags.account(e.account)] : [])
+                var t: [SourceTag] = []
+                if let i = instances.firstIndex(of: e.instance) {
+                    t.append(SourceTag(text: SessionTags.instance(e.instance), slot: i))
+                }
+                if let a = accounts.firstIndex(of: e.account) {
+                    t.append(SourceTag(text: SessionTags.account(e.account), slot: instances.count + a))
+                }
+                newTags[e.id] = t
             }
         }
         if newTags != tags { tags = newTags }
@@ -174,6 +183,12 @@ final class AppSessionIndex: ObservableObject {
 
 /// The short tags on a tile saying where a session comes from: which Claude instance runs it and which
 /// account created it. Each shows only when there is more than one of its kind.
+struct SourceTag: Equatable {
+    let text: String
+    /// Color slot, distinct per instance and per account; skins map it onto their own palette.
+    let slot: Int
+}
+
 enum SessionTags {
     /// UserDefaults dictionary of instance folder name → tag, e.g. `{Claude = W; "Claude-personal" = P;}`.
     static let instanceKey = "instanceBadges"

@@ -157,6 +157,9 @@ private struct ArcadeTile: View {
     let model: TileModel
     let state: TileState
 
+    static let tagColors: [Color] = [Color(hex: 0x3BE8FF), Color(hex: 0xFF5FB0), Color(hex: 0x6BFF5F), Color(hex: 0xFFE14D),
+                                     Color(hex: 0xFFFFFF)]
+
     private var color: Color { model.pinnedIdle ? ArcadeSkin.pinnedIdle : ArcadeSkin.color(model.status) }
     private var blinking: Bool { model.status == .waiting && !state.reduceMotion }
 
@@ -195,12 +198,13 @@ private struct ArcadeTile: View {
                 statusLine
                 Spacer(minLength: 4)
                 TagRow(tags: model.tags) { t in
-                    Text(t)
+                    let c = Self.tagColors.tag(t)
+                    Text(t.text)
                         .font(.system(size: 8.5, weight: .black, design: .monospaced))
-                        .foregroundStyle(ArcadeSkin.yellow)
+                        .foregroundStyle(c)
                         .padding(.horizontal, 3).padding(.vertical, 1)
                         .background(Rectangle().fill(Color(hex: 0x1C1C40)))
-                        .overlay(Rectangle().strokeBorder(Color(hex: 0x9A9AC8), lineWidth: 1))
+                        .overlay(Rectangle().strokeBorder(c, lineWidth: 1))
                 }
             }
         }
