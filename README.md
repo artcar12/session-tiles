@@ -129,7 +129,7 @@ format). The app:
 - keeps files with `entrypoint == "claude-desktop"` whose `pid` is alive (`kill(pid, 0)`), and whose
   `procStart` matches the process's real start time when present, so a reused pid doesn't resurrect a
   stale file;
-- opens a session with `claude://claude.ai/epitaxy/<hostSessionId>`.
+- opens a session in the Claude instance it belongs to (see below).
 
 Only running sessions write those files. For dormant tiles the app also reads the Claude app's own record
 of every Code-tab session, `~/Library/Application Support/Claude*/claude-code-sessions/<id>/<id>/local_*.json`
@@ -137,6 +137,23 @@ of every Code-tab session, `~/Library/Application Support/Claude*/claude-code-se
 folder is read, so a second instance's sessions show up too; the instance folder and the account id folder a
 record sits in are what the source tags go by. If those folders are missing or their format changes, dormant tiles and tags just
 don't appear.
+
+Clicking a tile (or **Open in Claude**) sends `claude://claude.ai/epitaxy/<hostSessionId>` straight to the
+owning Claude process, not through the system URL handler: with two instances of the same app running,
+LaunchServices would hand the link to whichever one it picks, often the wrong account. The app:
+
+- lists running Claude processes (`com.anthropic.claudefordesktop`) and reads each one's
+  `--user-data-dir` from its arguments (none means the default `~/Library/Application Support/Claude`);
+- for a live session, walks up the parent processes from the session's `pid` (claude → disclaimer →
+  Claude) to the instance that started it;
+- otherwise (dormant or offline tiles), takes the data folder holding the session's record and matches it
+  to a running instance's data folder;
+- sends that one process a GURL Apple event with the link, then an activate event to bring it to the front.
+
+If the owning instance isn't running, or the owner can't be worked out, a red banner says so for a few
+seconds and nothing is opened. Sending Apple events needs the Automation permission: macOS asks the first
+time you click a tile. If you decline, enable Session Tiles under System Settings ▸ Privacy & Security ▸
+Automation. The build is ad-hoc signed, so macOS may ask again after a rebuild.
 
 Archiving edits that record directly: it swaps the single `"isArchived":false` for `true` (or back),
 writes a sibling file with the original permissions and renames it over, and refuses with an alert if the

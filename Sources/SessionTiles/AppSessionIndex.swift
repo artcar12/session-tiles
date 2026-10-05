@@ -15,6 +15,14 @@ struct AppSessionEntry: Equatable {
     let instance: String
     /// The account that created the session: the account id folder the record sits under.
     let account: String
+
+    /// The instance's data folder (`<dataDir>/claude-code-sessions/<account>/<org>/<record>`), which tells
+    /// which running instance owns the session.
+    var dataDir: URL {
+        var url = URL(fileURLWithPath: path)
+        for _ in 0..<4 { url.deleteLastPathComponent() }
+        return url
+    }
 }
 
 /// Raw shape of the Claude app's per-session metadata file. Undocumented internal format: every field

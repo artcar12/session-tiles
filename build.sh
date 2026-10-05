@@ -27,6 +27,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSAppleEventsUsageDescription</key><string>Session Tiles opens each session in the Claude instance it belongs to.</string>
 </dict>
 </plist>
 PLIST
