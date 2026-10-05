@@ -50,7 +50,7 @@ struct TilesView: View {
                     }
                     if showControls {
                         ControlDeck(style: skin.controls, showAll: $showAll, status: $status,
-                                    standbyStop: $standbyStop, hidden: result.hidden)
+                                    standbyStop: $standbyStop, skin: $skinID, hidden: result.hidden)
                     }
                 }
             }
@@ -59,8 +59,16 @@ struct TilesView: View {
         }
         // The header occupies the (invisible) title-bar strip, which doubles as the drag handle.
         .ignoresSafeArea(edges: .top)
+        // Right-click on the panel (tiles have their own menu). Reachable with the control strip hidden.
+        .contentShape(Rectangle())
+        .contextMenu {
+            Picker("Skin", selection: $skinID) {
+                ForEach(SkinID.allCases) { Text($0.displayName).tag($0) }
+            }
+            Toggle("Show Controls", isOn: $showControls)
+        }
         .background(skin.background().ignoresSafeArea())
-        .frame(minWidth: showControls ? 250 : 200, minHeight: showControls ? 170 : 100)
+        .frame(minWidth: showControls ? 290 : 200, minHeight: showControls ? 170 : 100)
     }
 }
 

@@ -41,6 +41,39 @@ extension View {
             self
         }
     }
+
+    /// Like `blink`, but plays an irregular `Flicker` pattern (neon tube, torch flame). Same caveats.
+    @ViewBuilder
+    func flicker(_ enabled: Bool, _ pattern: Flicker) -> some View {
+        if enabled {
+            BlinkHost(content: self, low: 0, period: pattern.period, flicker: pattern)
+        } else {
+            self
+        }
+    }
+}
+
+/// An irregular opacity loop: `values` spread evenly over `period` seconds.
+struct Flicker: Equatable {
+    var values: [Double]
+    var period: Double
+    /// Jump between values instead of fading (a buzzing neon tube rather than a flame).
+    var discrete = false
+
+    static let torch = Flicker(values: [1, 0.72, 0.95, 0.6, 0.88, 0.78, 1, 0.66, 0.9, 0.82, 1], period: 1.4)
+    static let neon = Flicker(values: [1, 1, 1, 1, 0.15, 1, 0.35, 1, 1, 1, 1, 1, 1, 0.1, 0.8, 1, 1, 1],
+                              period: 2.6, discrete: true)
+
+    func animation(for layer: CALayer) -> CAAnimation {
+        let a = CAKeyframeAnimation(keyPath: "opacity")
+        a.values = values.map { Float($0) }
+        a.calculationMode = discrete ? .discrete : .linear
+        a.duration = period
+        a.repeatCount = .infinity
+        a.isRemovedOnCompletion = false
+        a.beginTime = LayerClock.alignedBeginTime(for: layer, cycle: period)
+        return a
+    }
 }
 
 /// Hosts the SwiftUI content in its own layer and animates that layer's opacity.
@@ -48,12 +81,13 @@ private struct BlinkHost<Content: View>: NSViewRepresentable {
     let content: Content
     let low: Double
     let period: Double
+    var flicker: Flicker?
 
     func makeNSView(context: Context) -> BlinkView<Content> { BlinkView(content) }
 
     func updateNSView(_ view: BlinkView<Content>, context: Context) {
         view.host.rootView = SafeAreaFree(content: content)
-        view.configure(low: Float(low), period: period)
+        view.configure(low: Float(low), period: period, flicker: flicker)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView view: BlinkView<Content>, context: Context) -> CGSize? {
@@ -81,6 +115,7 @@ private final class BlinkView<Content: View>: PassThroughView {
     let host: NSHostingController<SafeAreaFree<Content>>
     private var low: Float = 0.45
     private var period: Double = 0.6
+    private var flicker: Flicker?
 
     init(_ content: Content) {
         host = NSHostingController(rootView: SafeAreaFree(content: content))
@@ -110,16 +145,21 @@ private final class BlinkView<Content: View>: PassThroughView {
         addAnimationIfNeeded(force: true)
     }
 
-    func configure(low: Float, period: Double) {
-        let changed = low != self.low || period != self.period
+    func configure(low: Float, period: Double, flicker: Flicker?) {
+        let changed = low != self.low || period != self.period || flicker != self.flicker
         self.low = low
         self.period = period
+        self.flicker = flicker
         addAnimationIfNeeded(force: changed)
     }
 
     private func addAnimationIfNeeded(force: Bool) {
         guard let layer, window != nil else { return }
         if !force && layer.animation(forKey: "blink") != nil { return }
+        if let flicker {
+            layer.add(flicker.animation(for: layer), forKey: "blink")
+            return
+        }
         let a = CABasicAnimation(keyPath: "opacity")
         a.fromValue = 1
         a.toValue = low
@@ -135,8 +175,8 @@ private final class BlinkView<Content: View>: PassThroughView {
 
 // MARK: - Blinking fill
 
-/// A rounded rectangle filling its frame whose color blinks between full and `low` opacity, with an
-/// optional glow. Pure CALayer, for backlights, LEDs and other fills.
+/// A rounded rectangle filling its frame whose color blinks between full and `low` opacity (or plays
+/// `flicker`), with an optional glow. Pure CALayer, for backlights, LEDs, lamps and flames.
 struct BlinkingFill: NSViewRepresentable {
     var color: Color
     var cornerRadius: CGFloat
@@ -144,6 +184,7 @@ struct BlinkingFill: NSViewRepresentable {
     var low: Double = 0.45
     var period: Double = 0.6
     var glow: CGFloat = 0
+    var flicker: Flicker?
 
     func makeNSView(context: Context) -> BlinkingFillView { BlinkingFillView() }
     func updateNSView(_ view: BlinkingFillView, context: Context) { view.configure(self) }
@@ -172,7 +213,9 @@ final class BlinkingFillView: PassThroughView {
         layer.shadowOffset = .zero
         layer.shadowRadius = c.glow
         layer.shadowOpacity = c.glow > 0 ? 1 : 0
-        if old?.blinking != c.blinking || old?.low != c.low || old?.period != c.period { updateAnimation() }
+        if old?.blinking != c.blinking || old?.low != c.low || old?.period != c.period || old?.flicker != c.flicker {
+            updateAnimation()
+        }
     }
 
     override func viewDidMoveToWindow() {
@@ -184,6 +227,10 @@ final class BlinkingFillView: PassThroughView {
         guard let layer, let c = config else { return }
         guard c.blinking, window != nil else {
             layer.removeAnimation(forKey: "blink")
+            return
+        }
+        if let f = c.flicker {
+            layer.add(f.animation(for: layer), forKey: "blink")
             return
         }
         let a = CABasicAnimation(keyPath: "opacity")
@@ -370,5 +417,90 @@ final class LevelMeterView: PassThroughView {
             a.beginTime = LayerClock.alignedBeginTime(for: layer, cycle: period * 2)
             bar.add(a, forKey: "level")
         }
+    }
+}
+
+// MARK: - Swinging needle
+
+/// Gauge needle pivoting on the bottom-centre of its frame. Angles are degrees from vertical, clockwise
+/// positive. Animated, it loops through `angles` over `period`; otherwise it rests on the first one.
+struct SwingingNeedle: NSViewRepresentable {
+    var color: Color
+    var angles: [Double]
+    var period: Double = 2
+    var animated: Bool
+    var width: CGFloat = 1.5
+
+    func makeNSView(context: Context) -> SwingingNeedleView { SwingingNeedleView() }
+    func updateNSView(_ view: SwingingNeedleView, context: Context) { view.configure(self) }
+}
+
+final class SwingingNeedleView: PassThroughView {
+    private var config: SwingingNeedle?
+    private let needle = CALayer()
+    private let hub = CALayer()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        needle.anchorPoint = CGPoint(x: 0.5, y: 0)
+        layer?.addSublayer(needle)
+        layer?.addSublayer(hub)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    private static func rotation(_ degrees: Double) -> CGFloat { CGFloat(-degrees * .pi / 180) }
+
+    func configure(_ c: SwingingNeedle) {
+        let old = config
+        config = c
+        guard old?.angles != c.angles || old?.animated != c.animated || old?.period != c.period
+                || old?.width != c.width || NSColor(old?.color ?? .clear) != NSColor(c.color) else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let cg = NSColor(c.color).cgColor
+        needle.backgroundColor = cg
+        needle.cornerRadius = c.width / 2
+        hub.backgroundColor = cg
+        needle.setValue(Self.rotation(c.angles.first ?? 0), forKeyPath: "transform.rotation.z")
+        CATransaction.commit()
+        needsLayout = true
+        updateAnimation()
+    }
+
+    override func layout() {
+        super.layout()
+        guard let c = config else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let pivot = CGPoint(x: bounds.midX, y: 2)
+        let length = max(min(bounds.height - 3, bounds.width / 2), 1)
+        needle.bounds = CGRect(x: 0, y: 0, width: c.width, height: length)
+        needle.position = pivot
+        hub.frame = CGRect(x: pivot.x - 2.5, y: pivot.y - 2.5, width: 5, height: 5)
+        hub.cornerRadius = 2.5
+        CATransaction.commit()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateAnimation()
+    }
+
+    private func updateAnimation() {
+        guard let c = config, c.animated, c.angles.count > 1, window != nil else {
+            needle.removeAnimation(forKey: "swing")
+            return
+        }
+        let a = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        let values = c.angles + [c.angles[0]]
+        a.values = values.map { Self.rotation($0) }
+        a.timingFunctions = Array(repeating: CAMediaTimingFunction(name: .easeInEaseOut), count: values.count - 1)
+        a.duration = c.period
+        a.repeatCount = .infinity
+        a.isRemovedOnCompletion = false
+        a.beginTime = LayerClock.alignedBeginTime(for: needle, cycle: c.period)
+        needle.add(a, forKey: "swing")
     }
 }
