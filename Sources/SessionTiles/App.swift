@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 
 @main
 struct SessionTilesApp: App {
@@ -33,10 +34,12 @@ private struct MenuContent: View {
     @ObservedObject var delegate: AppDelegate
     @ObservedObject var store: SessionStore
     @AppStorage(SkinID.defaultsKey) private var skinID: SkinID = .classic
+    @AppStorage(ControlDeck.visibleKey) private var showControls = true
 
     var body: some View {
         Button(delegate.panelVisible ? "Hide Panel" : "Show Panel") { delegate.togglePanel() }
             .keyboardShortcut("t")
+        Toggle("Show Controls", isOn: $showControls)
         Picker("Skin", selection: $skinID) {
             ForEach(SkinID.allCases) { Text($0.displayName).tag($0) }
         }
@@ -50,15 +53,20 @@ private struct MenuContent: View {
 final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let store = ProcessInfo.processInfo.environment["SESSION_TILES_DIR"]
         .map { SessionStore(directory: URL(fileURLWithPath: $0, isDirectory: true)) } ?? SessionStore()
+    let pins = PinStore()
     private var panel: FloatingPanel?
+    private var pinSync: AnyCancellable?
     private static let visibleKey = "panelVisible"
 
     @Published private(set) var panelVisible = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)  // belt and braces alongside LSUIElement
+        pinSync = store.$sessions.sink { [pins] sessions in
+            MainActor.assumeIsolated { pins.update(from: sessions) }
+        }
         store.start()
-        let p = FloatingPanel(content: TilesView(store: store))
+        let p = FloatingPanel(content: TilesView(store: store, pins: pins))
         panel = p
         if UserDefaults.standard.object(forKey: Self.visibleKey) as? Bool ?? true {
             showPanel()
@@ -71,7 +79,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.panel?.writeSnapshot(to: path)
-                    let lines = VisibilityRules.ordered(self.store.sessions, now: Date())
+                    let lines = VisibilityRules.ordered(self.store.sessions, pinned: self.pins.pins,
+                                                        filter: .saved, now: Date()).tiles
                         .map { "\($0.rawStatus)\t\($0.project)\t\($0.name)\t\($0.waitingFor ?? "")\t\($0.id)" }
                     try? (lines.joined(separator: "\n") + "\n").write(toFile: path + ".txt", atomically: true, encoding: .utf8)
                 }

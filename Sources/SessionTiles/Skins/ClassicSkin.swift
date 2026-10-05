@@ -6,6 +6,9 @@ struct ClassicSkin: Skin {
     let textColor = Color.primary
     let secondaryTextColor = Color.secondary
 
+    let controls = ControlStyle(accent: .accentColor, track: .primary.opacity(0.15), cap: Color(white: 0.96),
+                                capEdge: .black.opacity(0.15), label: .secondary, value: .primary, radius: 9)
+
     func font(_ size: CGFloat, _ weight: Font.Weight) -> Font { .system(size: size, weight: weight) }
 
     func background() -> AnyView { AnyView(Color.clear) }
@@ -53,6 +56,8 @@ private struct ClassicTile: View {
                     .lineLimit(1)
             } else if model.status == .unknown {
                 Text("Status: \(model.rawStatus)").font(.system(size: 10.5)).lineLimit(1)
+            } else if model.status == .offline {
+                Text("Offline").font(.system(size: 10.5, weight: .medium)).lineLimit(1)
             }
         }
         .foregroundStyle(.white)
@@ -70,6 +75,7 @@ private struct ClassicTile: View {
         case .idle:    return Color(red: dark ? 0.78 : 0.88, green: dark ? 0.50 : 0.56, blue: 0.05)
         case .busy:    return Color(red: 0.16, green: dark ? 0.40 : 0.45, blue: dark ? 0.80 : 0.88)
         case .unknown: return .gray
+        case .offline: return Color(white: dark ? 0.32 : 0.55)
         }
     }
 }

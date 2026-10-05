@@ -13,12 +13,17 @@ struct StarshipSkin: Skin {
 
     static let cyan = Color(hex: 0x39C5FF)
 
+    let controls = ControlStyle(accent: cyan, track: cyan.opacity(0.18), cap: Color(hex: 0x0A121A),
+                                capEdge: cyan.opacity(0.7), label: Color(hex: 0x5E8AA0), value: Color(hex: 0xBFEFFF),
+                                design: .monospaced, radius: 1.5, glow: true)
+
     static func color(_ status: SessionStatus) -> Color {
         switch status {
         case .waiting: return Color(hex: 0xFF3B30)
         case .idle:    return Color(hex: 0xFFB000)
         case .busy:    return cyan
         case .unknown: return Color(hex: 0x8FA3AD)
+        case .offline: return Color(hex: 0x4A5A64)
         }
     }
 
@@ -82,7 +87,7 @@ private struct StarshipHeader: View {
             HStack(spacing: 6) {
                 Text("◢ SESSION CONTROL")
                     .foregroundStyle(StarshipSkin.cyan)
-                Text("// \(summary.total) ONLINE")
+                Text("// \(summary.online) ONLINE")
                     .foregroundStyle(StarshipSkin.cyan.opacity(0.5))
                 Spacer()
                 if summary.waiting > 0 {
@@ -204,6 +209,8 @@ private struct StarshipStation: View {
             Text("STANDBY").font(font).foregroundStyle(color.opacity(0.85))
         case .unknown:
             Text("STATUS \(model.rawStatus.uppercased())").font(font).foregroundStyle(color).lineLimit(1)
+        case .offline:
+            Text("◌ SIGNAL LOST").font(font).foregroundStyle(color)
         }
     }
 }

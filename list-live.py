@@ -2,7 +2,7 @@
 """List live Claude desktop sessions from ~/.claude/sessions, independently of the app.
 
   ./list-live.py            all live desktop sessions
-  ./list-live.py --visible  only those the MVP rule shows (hides idle > 1h), in tile order, as TSV
+  ./list-live.py --visible  only those the default filter shows (hides idle > 1h; ignores pins), in tile order, as TSV
 """
 import glob, json, os, sys, time
 

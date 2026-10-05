@@ -7,6 +7,10 @@ struct DJDeckSkin: Skin {
     let textColor = Color.white
     let secondaryTextColor = Color(hex: 0x8A8A95)
 
+    let controls = ControlStyle(accent: Color(hex: 0x1EA7FF), track: Color(hex: 0x34343C), cap: Color(hex: 0x3A3A42),
+                                capEdge: .white.opacity(0.18), label: Color(hex: 0x8A8A95), value: .white,
+                                design: .rounded, radius: 4, glow: true)
+
     func font(_ size: CGFloat, _ weight: Font.Weight) -> Font {
         .system(size: size, weight: weight, design: .rounded)
     }
@@ -17,6 +21,7 @@ struct DJDeckSkin: Skin {
         case .idle:    return Color(hex: 0xFFA41B)
         case .busy:    return Color(hex: 0x1EA7FF)
         case .unknown: return Color(hex: 0x9A9AA5)
+        case .offline: return Color(hex: 0x4A4A55)
         }
     }
 
@@ -92,6 +97,7 @@ private struct DJPad: View {
         case .busy: base = 0.85
         case .idle: base = 0.72
         case .unknown: base = 0.4
+        case .offline: base = 0.3
         }
         return min(1, base + (state.hovering ? 0.15 : 0) + (state.pressed ? 0.2 : 0))
     }
@@ -127,7 +133,7 @@ private struct DJPad: View {
                         .lineLimit(1)
                         .padding(.horizontal, 4).padding(.vertical, 1)
                         .background(Capsule().fill(.black.opacity(0.35)))
-                } else if model.status == .unknown {
+                } else if model.status == .unknown || model.status == .offline {
                     Text(model.rawStatus.uppercased()).font(.system(size: 8.5, weight: .heavy)).lineLimit(1)
                 }
                 HStack(alignment: .bottom, spacing: 4) {
