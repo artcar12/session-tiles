@@ -45,13 +45,15 @@ struct TilesView: View {
                                 ForEach(visible) { s in
                                     TileButton(skin: skin,
                                                model: TileModel(session: s, elapsed: context.date.timeIntervalSince(s.statusSince),
-                                                              pinned: pins.isPinned(s.id)),
+                                                              pinned: pins.isPinned(s.id), account: index.badges[s.id]),
                                                pinned: pins.isPinned(s.id),
                                                reduceMotion: reduceMotion) { pins.toggle(s) }
                                 }
                             }
                             .padding(6)   // room for glows/shadows so the scroll view doesn't clip them
                             .padding(-6)
+                            // Account badges straddle the tiles' top-left corners; keep the top row's whole.
+                            .padding([.top, .leading], index.badges.isEmpty ? 0 : 5)
                         }
                     }
                     if showControls {
@@ -97,12 +99,16 @@ private struct TileButton: View {
         .overlay(alignment: .topTrailing) {
             PinBadge(pinned: pinned, visible: pinned || hovering, action: togglePin)
         }
+        .overlay(alignment: .topLeading) {
+            if let account = model.account { AccountTag(text: account, skin: skin) }
+        }
         .onHover { hovering = $0 }
         .contextMenu {
             Button("Open in Claude", action: open)
             Button(pinned ? "Unpin" : "Pin", action: togglePin)
         }
-        .help("\(model.name)\n\(model.project) · \(model.rawStatus)\(pinned ? " · pinned" : "")\nClick to open in Claude")
+        .help("\(model.name)\n\(model.project) · \(model.rawStatus)\(pinned ? " · pinned" : "")"
+              + "\(model.account.map { " · account \($0)" } ?? "")\nClick to open in Claude")
     }
 
     private func open() {
@@ -131,6 +137,26 @@ private struct PinBadge: View {
         .allowsHitTesting(visible)
         .help(pinned ? "Unpin: let filters hide this tile again" : "Pin: keep this tile on the panel")
         .accessibilityLabel(pinned ? "Unpin" : "Pin")
+    }
+}
+
+/// Account letter straddling a tile's top-left corner, like a notification badge, so it never covers the
+/// skin's own text. Neutral colors so it doesn't read as a status.
+private struct AccountTag: View {
+    let text: String
+    let skin: any Skin
+
+    var body: some View {
+        Text(text)
+            .font(skin.font(9, .heavy))
+            .foregroundStyle(.white)
+            .frame(minWidth: 16, minHeight: 16)
+            .padding(.horizontal, text.count > 1 ? 2 : 0)
+            .background(Capsule().fill(Color.black.opacity(0.78)))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.7), lineWidth: 1))
+            .offset(x: -5, y: -5)
+            .allowsHitTesting(false)
+            .accessibilityLabel("Account \(text)")
     }
 }
 

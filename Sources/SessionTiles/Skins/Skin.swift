@@ -75,6 +75,8 @@ struct TileModel {
     let session: Session
     let elapsed: TimeInterval
     var pinned = false
+    /// Account badge ("P", "W"); nil when only one Claude instance has sessions.
+    var account: String? = nil
 
     /// Pinned idle tiles get their own color in every skin, so they stand apart from ordinary idle ones.
     var pinnedIdle: Bool { pinned && session.status == .idle }
