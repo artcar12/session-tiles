@@ -13,6 +13,8 @@ struct TilesView: View {
     @AppStorage(TileFilter.Keys.showDormant) private var showDormant = false
     @AppStorage(ControlDeck.visibleKey) private var showControls = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Why the last click didn't open its session; cleared after a few seconds or on click.
+    @State private var openError: (id: UUID, text: String)?
 
     var body: some View {
         let skin = skinID.skin
@@ -33,6 +35,10 @@ struct TilesView: View {
                     if let warn = store.warning {
                         Banner(text: warn, symbol: "exclamationmark.triangle.fill", color: .orange, skin: skin)
                     }
+                    if let openError {
+                        Banner(text: openError.text, symbol: "xmark.octagon.fill", color: .red, skin: skin)
+                            .onTapGesture { self.openError = nil }
+                    }
                     if visible.isEmpty {
                         Text(result.hidden > 0 ? "\(result.hidden) hidden by filters" : "No active Claude sessions")
                             .font(skin.font(12, .regular))
@@ -51,6 +57,7 @@ struct TilesView: View {
                                                pinned: pins.isPinned(s.id),
                                                archived: records[s.id]?.archived,
                                                reduceMotion: reduceMotion,
+                                               open: { open(s, recordDataDir: records[s.id]?.dataDir) },
                                                togglePin: { pins.toggle(s) },
                                                toggleArchived: { setArchived(s, !(records[s.id]?.archived ?? false)) })
                                 }
@@ -84,6 +91,17 @@ struct TilesView: View {
         .frame(minWidth: showControls ? 360 : 200, minHeight: showControls ? 170 : 100)
     }
 
+    private func open(_ s: Session, recordDataDir: URL?) {
+        openError = nil
+        InstanceRouter.open(s, recordDataDir: recordDataDir) { text in
+            let id = UUID()
+            openError = (id, text)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                if openError?.id == id { openError = nil }
+            }
+        }
+    }
+
     private func setArchived(_ s: Session, _ archived: Bool) {
         do {
             try index.setArchived(s.id, archived)
@@ -105,6 +123,7 @@ private struct TileButton: View {
     /// The archived flag in the Claude app's record; nil when there's no record to change.
     let archived: Bool?
     let reduceMotion: Bool
+    let open: () -> Void
     let togglePin: () -> Void
     let toggleArchived: () -> Void
     @State private var hovering = false
@@ -135,10 +154,6 @@ private struct TileButton: View {
         }
         .help("\(model.name)\n\(model.project) · \(model.rawStatus)\(pinned ? " · pinned" : "")"
               + model.tags.map { " · \($0.text)" }.joined() + "\nClick to open in Claude")
-    }
-
-    private func open() {
-        if let url = model.session.deepLink { NSWorkspace.shared.open(url) }
     }
 }
 
