@@ -105,13 +105,23 @@ at about 1-3% CPU. Looping animations driven from SwiftUI (`phaseAnimator`, `rep
 
 ## Requirements
 
-macOS 14+, Swift 5.9+ toolchain (Xcode or Command Line Tools). No Xcode project is needed.
+- macOS 14+
+- Swift 5.9+ toolchain (Xcode or Command Line Tools). No Xcode project is needed.
+- Python 3.11+ for `ccsessiond`, the session reader from
+  [ccsession](https://github.com/artcar12/ccsession). [uv](https://docs.astral.sh/uv/) is recommended:
+  with it, any Python it can fetch will do.
 
 ## Build and run
 
 ```bash
 ./build.sh
 ```
+
+`build.sh` first runs `./install-ccsessiond.sh`, which installs `ccsessiond` into its own environment at
+`~/.local/bin/ccsessiond` (with `uv tool install`, or without uv a `python3 -m venv` at
+`~/.local/share/ccsession-venv` plus `pip`), then builds the app. Set `CCSESSION_SOURCE=/path/to/ccsession`
+to install from a local checkout, `CCSESSION_REF` for another release, or `SKIP_CCSESSIOND=1` to skip it.
+Running it again upgrades `ccsessiond` in place.
 
 ```bash
 open build/SessionTiles.app

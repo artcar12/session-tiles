@@ -4,6 +4,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 CONFIG="${1:-release}"
 
+# ccsessiond, the session reader, into ~/.local/bin (SKIP_CCSESSIOND=1 skips it).
+if [ "${SKIP_CCSESSIOND:-0}" != 1 ]; then
+    ./install-ccsessiond.sh
+fi
+
 swift build -c "$CONFIG"
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/SessionTiles"
 
