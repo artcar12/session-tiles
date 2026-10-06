@@ -169,8 +169,15 @@ The same routing is available from the command line as `claude-open`, embedded i
 
 ```bash
 build/SessionTiles.app/Contents/MacOS/claude-open --session <hostSessionId> [--resolve-only]
+build/SessionTiles.app/Contents/MacOS/claude-open --data-dir <user data dir> [--pid <Claude main pid>] --url <claude:// url>
 build/SessionTiles.app/Contents/MacOS/claude-open --pid <Claude main pid> --url <claude:// url>
 ```
+
+`--data-dir` is for a caller that has already worked out the owner (ccsessiond does): the link goes to
+`--pid` if that is still the main process for the data dir, else to whichever running instance uses the
+data dir, else that account is started first. `--data-dir <dir> [--pid <n>] --resolve-only` prints which
+instance that would be without sending anything. ccsessiond runs `claude-open` from this bundle, so the
+Automation permission belongs to Session Tiles rather than to python3.
 
 It prints one JSON line and exits 0 on success, 2 usage, 3 unknown owner, 4 Automation denied, 5 launch
 failed or timed out, 6 send failed. Sending Apple events needs the Automation permission: macOS asks the first
