@@ -105,13 +105,23 @@ at about 1-3% CPU. Looping animations driven from SwiftUI (`phaseAnimator`, `rep
 
 ## Requirements
 
-macOS 14+, Swift 5.9+ toolchain (Xcode or Command Line Tools). No Xcode project is needed.
+- macOS 14+
+- Swift 5.9+ toolchain (Xcode or Command Line Tools). No Xcode project is needed.
+- Python 3.11+ for `ccsessiond`, the session reader from
+  [ccsession](https://github.com/artcar12/ccsession). [uv](https://docs.astral.sh/uv/) is recommended:
+  with it, any Python it can fetch will do.
 
 ## Build and run
 
 ```bash
 ./build.sh
 ```
+
+`build.sh` first runs `./install-ccsessiond.sh`, which installs `ccsessiond` into its own environment at
+`~/.local/bin/ccsessiond` (with `uv tool install`, or without uv a `python3 -m venv` at
+`~/.local/share/ccsession-venv` plus `pip`), then builds the app. Set `CCSESSION_SOURCE=/path/to/ccsession`
+to install from a local checkout, `CCSESSION_REF` for another release, or `SKIP_CCSESSIOND=1` to skip it.
+Running it again upgrades `ccsessiond` in place.
 
 ```bash
 open build/SessionTiles.app
@@ -159,8 +169,15 @@ The same routing is available from the command line as `claude-open`, embedded i
 
 ```bash
 build/SessionTiles.app/Contents/MacOS/claude-open --session <hostSessionId> [--resolve-only]
+build/SessionTiles.app/Contents/MacOS/claude-open --data-dir <user data dir> [--pid <Claude main pid>] --url <claude:// url>
 build/SessionTiles.app/Contents/MacOS/claude-open --pid <Claude main pid> --url <claude:// url>
 ```
+
+`--data-dir` is for a caller that has already worked out the owner (ccsessiond does): the link goes to
+`--pid` if that is still the main process for the data dir, else to whichever running instance uses the
+data dir, else that account is started first. `--data-dir <dir> [--pid <n>] --resolve-only` prints which
+instance that would be without sending anything. ccsessiond runs `claude-open` from this bundle, so the
+Automation permission belongs to Session Tiles rather than to python3.
 
 It prints one JSON line and exits 0 on success, 2 usage, 3 unknown owner, 4 Automation denied, 5 launch
 failed or timed out, 6 send failed. Sending Apple events needs the Automation permission: macOS asks the first

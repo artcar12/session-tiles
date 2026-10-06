@@ -98,6 +98,16 @@ public enum InstanceRouter {
         return running.first { $0.userDataDir == dir } ?? ClaudeInstance(userDataDir: dir, pid: nil)
     }
 
+    /// The instance for a data dir the caller has already resolved (ccsessiond does its own owner
+    /// resolution): `pid` when it's that dir's running main process, else whichever running instance
+    /// has the dir, else not running, so `open` starts it.
+    public static func instance(dataDir: String, pid: pid_t? = nil) -> ClaudeInstance {
+        let dir = normalize(dataDir)
+        let running = runningInstances().filter { $0.userDataDir == dir }
+        if let pid, let match = running.first(where: { $0.pid == pid }) { return match }
+        return running.first ?? ClaudeInstance(userDataDir: dir, pid: nil)
+    }
+
     /// Walks up from `pid` (claude → disclaimer → Claude) until it hits one of the main pids.
     static func owningMainPid(of pid: pid_t, among mains: Set<pid_t>) -> pid_t? {
         var current = pid
