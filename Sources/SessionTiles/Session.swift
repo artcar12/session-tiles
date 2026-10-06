@@ -46,10 +46,6 @@ struct Session: Identifiable, Equatable {
     let waitingFor: String?
     let statusSince: Date
 
-    var deepLink: URL? {
-        URL(string: "claude://claude.ai/epitaxy/\(id)")
-    }
-
     /// Returns nil when the file lacks what a desktop tile needs.
     init?(_ f: SessionFile) {
         guard let pid = f.pid, let host = f.hostSessionId, !host.isEmpty, let cwd = f.cwd else { return nil }

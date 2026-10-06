@@ -150,8 +150,20 @@ LaunchServices would hand the link to whichever one it picks, often the wrong ac
   to a running instance's data folder;
 - sends that one process a GURL Apple event with the link, then an activate event to bring it to the front.
 
-If the owning instance isn't running, or the owner can't be worked out, a red banner says so for a few
-seconds and nothing is opened. Sending Apple events needs the Automation permission: macOS asks the first
+If the owning instance isn't running, it's started the way `open -na Claude.app --args --user-data-dir=<dir>`
+would, and the link is delivered once it accepts Apple events (up to 15 s). If the owner can't be worked
+out, or delivery fails, a red banner says so for a few seconds and nothing is opened. The routing lives in
+the `InstanceRouter` library (`Sources/InstanceRouter`).
+
+The same routing is available from the command line as `claude-open`, embedded in the app bundle:
+
+```bash
+build/SessionTiles.app/Contents/MacOS/claude-open --session <hostSessionId> [--resolve-only]
+build/SessionTiles.app/Contents/MacOS/claude-open --pid <Claude main pid> --url <claude:// url>
+```
+
+It prints one JSON line and exits 0 on success, 2 usage, 3 unknown owner, 4 Automation denied, 5 launch
+failed or timed out, 6 send failed. Sending Apple events needs the Automation permission: macOS asks the first
 time you click a tile. If you decline, enable Session Tiles under System Settings ▸ Privacy & Security ▸
 Automation. The build is ad-hoc signed, so macOS may ask again after a rebuild.
 

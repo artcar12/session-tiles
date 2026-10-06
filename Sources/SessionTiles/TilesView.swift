@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import InstanceRouter
 
 struct TilesView: View {
     @ObservedObject var store: SessionStore
@@ -91,16 +92,30 @@ struct TilesView: View {
         .frame(minWidth: showControls ? 360 : 200, minHeight: showControls ? 170 : 100)
     }
 
+    /// Opens the session in the Claude instance that owns it (InstanceRouter: ppid chain for live
+    /// sessions, the record's data folder for dormant ones; launches that instance if it isn't running).
+    /// Never NSWorkspace.open, which hands the link to whichever instance LaunchServices picks.
     private func open(_ s: Session, recordDataDir: URL?) {
         openError = nil
-        InstanceRouter.open(s, recordDataDir: recordDataDir) { text in
-            let id = UUID()
-            openError = (id, text)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
-                if openError?.id == id { openError = nil }
+        let id = s.id, pid = s.pid > 0 ? pid_t(s.pid) : nil
+        Self.routerQueue.async {
+            do {
+                _ = try InstanceRouter.open(hostSessionId: id, sessionPid: pid, recordDataDir: recordDataDir?.path)
+            } catch {
+                let text = error.localizedDescription
+                DispatchQueue.main.async {
+                    let token = UUID()
+                    openError = (token, text)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                        if openError?.id == token { openError = nil }
+                    }
+                }
             }
         }
     }
+
+    /// Serial: process scans, the one-time Automation prompt and cold starts all block.
+    private static let routerQueue = DispatchQueue(label: "SessionTiles.InstanceRouter")
 
     private func setArchived(_ s: Session, _ archived: Bool) {
         do {

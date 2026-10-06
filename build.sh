@@ -11,6 +11,8 @@ APP="build/SessionTiles.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/SessionTiles"
+# claude-open: the same instance routing as a tile click, for the agent (and scripts) to call.
+cp "$(dirname "$BIN")/ClaudeOpen" "$APP/Contents/MacOS/claude-open"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -33,5 +35,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 # Ad-hoc sign so Gatekeeper/TCC treat it as a stable local app.
+codesign --force --sign - "$APP/Contents/MacOS/claude-open" >/dev/null 2>&1 || true
 codesign --force --sign - "$APP" >/dev/null 2>&1 || true
 echo "Built $APP"
