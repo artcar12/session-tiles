@@ -179,6 +179,13 @@ data dir, else that account is started first. `--data-dir <dir> [--pid <n>] --re
 instance that would be without sending anything. ccsessiond runs `claude-open` from this bundle, so the
 Automation permission belongs to Session Tiles rather than to python3.
 
+When a background service such as ccsessiond (started by launchd) runs `claude-open`, macOS would hold that
+service's interpreter responsible for the Apple events. An interpreter has no app bundle to ask on behalf of,
+so the events are refused without a prompt and `claude-open` exits 4. To avoid that, `claude-open` first
+re-launches itself with responsibility disclaimed, so the signed `claude-open` is the process macOS asks
+about. This uses `responsibility_spawnattrs_setdisclaim`, a private macOS API looked up at run time. If it
+isn't there, `claude-open` runs in-process as before.
+
 It prints one JSON line and exits 0 on success, 2 usage, 3 unknown owner, 4 Automation denied, 5 launch
 failed or timed out, 6 send failed. Sending Apple events needs the Automation permission: macOS asks the first
 time you click a tile. If you decline, enable Session Tiles under System Settings ▸ Privacy & Security ▸

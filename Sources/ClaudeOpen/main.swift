@@ -31,6 +31,33 @@ func usage() -> Never {
     exit(2)
 }
 
+/// Run as our own responsible process. macOS asks for Automation consent on behalf of the caller's
+/// responsible process: from a launchd job (ccsessiond) that is a bare interpreter with no bundle, which
+/// can't be prompted, so every send is refused as denied. Re-spawning with responsibility disclaimed
+/// makes this signed binary the one that asks (and is listed under Automation). The child does the work
+/// on the same stdio; we pass its exit status on. `responsibility_spawnattrs_setdisclaim` is a private
+/// libsystem symbol looked up at run time: if it's missing, or any step fails, we just run in-process.
+func runDisclaimed() {
+    let key = "CLAUDE_OPEN_DISCLAIMED"
+    guard getenv(key) == nil,
+          let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "responsibility_spawnattrs_setdisclaim") else { return }
+    typealias SetDisclaim = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t?>, Int32) -> Int32
+    var attr: posix_spawnattr_t?
+    guard posix_spawnattr_init(&attr) == 0 else { return }
+    defer { posix_spawnattr_destroy(&attr) }
+    guard unsafeBitCast(sym, to: SetDisclaim.self)(&attr, 1) == 0 else { return }
+    var buf = [CChar](repeating: 0, count: 4096)
+    guard proc_pidpath(getpid(), &buf, UInt32(buf.count)) > 0 else { return }
+    setenv(key, "1", 1)
+    var argv: [UnsafeMutablePointer<CChar>?] = CommandLine.arguments.map { strdup($0) } + [nil]
+    var child: pid_t = 0
+    guard posix_spawn(&child, buf, nil, &attr, &argv, environ) == 0 else { unsetenv(key); return }
+    var status: Int32 = 0
+    while waitpid(child, &status, 0) == -1 && errno == EINTR {}
+    exit((status & 0x7f) == 0 ? (status >> 8) & 0xff : 6)
+}
+runDisclaimed()
+
 var session: String?, dataDir: String?, pid: pid_t?, url: URL?, resolveOnly = false
 var args = CommandLine.arguments.dropFirst()
 while let a = args.popFirst() {
